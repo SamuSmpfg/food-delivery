@@ -13,12 +13,20 @@ const SignUp = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const nameMissing = submitted && !name.trim();
+  const emailMissing = submitted && !emailAddress.trim();
+  const passwordMissing = submitted && !password;
+  const confirmMissing = submitted && !confirmPassword;
 
   const onSignUpPress = async () => {
     if (!isLoaded || loading) return;
 
+    setSubmitted(true);
+
     if (!name.trim() || !emailAddress.trim() || !password || !confirmPassword) {
-      setError('Preencha todos os campos');
+      setError('Por favor, complete todos os campos');
       return;
     }
 
@@ -67,7 +75,7 @@ const SignUp = () => {
         <View style={styles.inputWrapper}>
           <Text style={styles.inputLabel}>NAME</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, nameMissing && styles.inputError]}
             placeholder="John Doe"
             placeholderTextColor="#A0A5BA"
             value={name}
@@ -78,7 +86,7 @@ const SignUp = () => {
 
           <Text style={styles.inputLabel}>EMAIL</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, emailMissing && styles.inputError]}
             placeholder="example@gmail.com"
             placeholderTextColor="#A0A5BA"
             value={emailAddress}
@@ -91,7 +99,7 @@ const SignUp = () => {
 
           <Text style={styles.inputLabel}>PASSWORD</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, passwordMissing && styles.inputError]}
             placeholder=" * * * * * * * * * *"
             placeholderTextColor="#A0A5BA"
             value={password}
@@ -103,7 +111,7 @@ const SignUp = () => {
 
           <Text style={styles.inputLabel}>RE-TYPE PASSWORD</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, confirmMissing && styles.inputError]}
             placeholder=" * * * * * * * * * *"
             placeholderTextColor="#A0A5BA"
             value={confirmPassword}
@@ -182,7 +190,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 10,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
-    paddingLeft: 16
+    paddingLeft: 16,
+    borderWidth: 1,
+    borderColor: 'transparent'
+  },
+  inputError: {
+    borderColor: '#E53935'
   },
   errorText: {
     fontFamily: "Sen_400Regular",

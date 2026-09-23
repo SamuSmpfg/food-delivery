@@ -14,12 +14,18 @@ const SignIn = () => {
   const [isChecked, setChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const emailMissing = submitted && !emailAddress.trim();
+  const passwordMissing = submitted && !password;
 
   const onSignInPress = async () => {
     if (!isLoaded || loading) return;
 
+    setSubmitted(true);
+
     if (!emailAddress.trim() || !password) {
-      setError('Fill out Email and Password fields.');
+      setError('Please, fill up all the fields');
       return;
     }
 
@@ -34,9 +40,9 @@ const SignIn = () => {
 
       if (signInAttempt.status === 'complete') {
         await setActive({ session: signInAttempt.createdSessionId });
-        router.replace('/');
+        router.replace('/(tabs)/HomeScreen');
       } else {
-        setError('Unable to complete the login. Check your credentials.');
+        setError('Could not log in, verify your credentials.');
       }
     } catch (err: any) {
       const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Error logging in';
@@ -61,7 +67,7 @@ const SignIn = () => {
         <View style={styles.inputWrapper}>
           <Text style={styles.inputLabel}>EMAIL</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, emailMissing && styles.inputError]}
             placeholder="example@gmail.com"
             placeholderTextColor="#A0A5BA"
             value={emailAddress}
@@ -75,7 +81,7 @@ const SignIn = () => {
         <View style={styles.inputWrapper}>
           <Text style={styles.inputLabel}>PASSWORD</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, passwordMissing && styles.inputError]}
             placeholder="* * * * * * * * * * "
             placeholderTextColor="#A0A5BA"
             value={password}
@@ -197,14 +203,18 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: "#F0F5FA",
     width: 'auto',
-    fontFamily: "Sen_400Regular",
     height: 62,
     marginTop: 10,
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
-    paddingLeft: 16
+    paddingLeft: 16,
+    borderWidth: 1,
+    borderColor: 'transparent'
+  },
+  inputError: {
+    borderColor: '#E53935'
   },
   errorText: {
     fontFamily: "Sen_400Regular",

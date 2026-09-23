@@ -1,165 +1,112 @@
-import { View, Text, FlatList, TouchableOpacity, Dimensions } from 'react-native'
-import React, { useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react';
+import { Text, TouchableOpacity, Image, View, StyleSheet } from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StyleSheet } from "react-native";
+import useLocation from '../../../hooks/useLocation';
 import { useRouter } from 'expo-router';
 
-const { width } = Dimensions.get("window");
+const LocationAcess = () => {
 
-const slides = [
-  {
-    key: "1",
-    title: "All your favorites",
-    description: "Get all your loved foods in one once place, you just place the orer we do the rest",
-  },
-  {
-    key: "2",
-    title: "All your favorites",
-    description: "Get all your loved foods in one once place, you just place the orer we do the rest",
-  },
-  {
-    key: "3",
-    title: "Order from choosen chef",
-    description: "Get all your loved foods in one once place, you just place the orer we do the rest",
-  },
-  {
-    key: "4",
-    title: "Free delivery offers",
-    description: "Get all your loved foods in one once place, you just place the orer we do the rest",
-  },
-];
+  const { latitude, longitude, errorMessage, getLocation } = useLocation()
+  const router = useRouter()
+  const [requested, setRequested] = useState(false)
 
-const LocationAccess = () => {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
-
-  const router = useRouter();
-
-  const isLastSlide = activeIndex === slides.length - 1;
-
-  const handleScroll = (event: any) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / width);
-    setActiveIndex(index);
-  };
-
-  const handleNext = () => {
-    if (isLastSlide) {
-      return router.navigate('/(auth)/SignIn');
+  useEffect(() => {
+    if (requested && latitude != null && longitude != null) {
+      router.replace('/(tabs)/HomeScreen')
     }
-    flatListRef.current?.scrollToIndex({ index: activeIndex + 1 });
-  };
+  }, [requested, latitude, longitude])
+
+  const onAccessLocationPress = () => {
+    setRequested(true)
+    getLocation()
+  }
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <FlatList
-        ref={flatListRef}
-        data={slides}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        keyExtractor={(item) => item.key}
-        renderItem={({ item }) => (
-          <View style={[styles.container, { width }]}>
-            <View style={styles.onBoardingImage}></View>
-            <Text style={styles.headerSlide}>{item.title}</Text>
-            <Text style={styles.paragraphSlide}>{item.description}</Text>
-          </View>
-        )}
-      />
-
-      <View style={styles.dotsContainer}>
-        {slides.map((_, index) => (
-          <View
-            key={index}
-            style={[styles.dot, activeIndex === index && styles.activeDot]}
-          />
-        ))}
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>{isLastSlide ? "GET STARTED" : "NEXT"}</Text>
+    <SafeAreaView style={styles.mainContainer}>
+      <View>
+        <Image 
+          source={require('../../../assets/images/flat-map.jpeg')} 
+          resizeMode="contain"
+          style={styles.mapImage}
+        />
+        <TouchableOpacity 
+        style={styles.accessLocationTouchableOpacity} 
+        onPress={onAccessLocationPress}>
+          <Text style={styles.accessLocationTextTouchableOpacity}>ACCESS LOCATION</Text>
+          <Feather name="map-pin" size={16} color="#fff" style={styles.iconLocation}/>
         </TouchableOpacity>
-        {!isLastSlide && (
-          <TouchableOpacity onPress={() => router.navigate('/(auth)/SignIn')}>
-            <Text style={styles.skipText}>Skip</Text>
-          </TouchableOpacity>
-        )}
+
+        {requested && errorMessage ? (
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        ) : null}
+        
+        <Text style={styles.accessLocationText}>
+          DFOOD WILL ACCESS YOUR LOCATION ONLY WHILE USING THE APP
+        </Text>
       </View>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
-    container: {
-        alignItems: "center"
-    },
-    onBoardingImage: {
-        width: 240,
-        height: 292,
-        backgroundColor: "#98A8B8",
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        borderBottomLeftRadius: 12,
-        borderBottomRightRadius: 12,
-        marginTop: 114
-    },
-    headerSlide: {
-        fontSize: 18,
-        fontFamily: "Sen_800ExtraBold",
-        color: "#32343E",
-        marginTop: 48,
-        marginBottom: 16
-    },
-    paragraphSlide: {
-        fontSize: 16,
-        fontFamily: "Sen_400Regular",
-        color: "#646982",
-        textAlign: 'center',
-        marginHorizontal: 25
-    },
-    dotsContainer: {
-        flexDirection: "row",
-        justifyContent: "center"
-    },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#FFE1CE",
-        marginHorizontal: 4
-    },
-    activeDot: {
-        backgroundColor: "#FF7622",
-        width: 20
-    },
-    buttonContainer: {
-        alignItems: "center",
-        marginTop: 60,
-        marginHorizontal: 25
-    },
-    nextButton: {
-        width: 327,
-        height: 62,
-        backgroundColor: "#FF7622",
-        paddingVertical: 16,
-        paddingTop: 22,
-        borderRadius: 12,
-        alignItems: "center",
-    },
-    nextButtonText: {
-        fontFamily: "Sen_700Bold",
-        color: "#FFFFFF",
-        fontSize: 12,
-    },
-    skipText: {
-        fontFamily: "Sen_400Regular",
-        color: "#646982",
-        fontSize: 14,
-        marginTop: 16
-    }
+  mainContainer: {
+    backgroundColor: '#fff',
+    height: 900,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 48
+  },
+  mapImage: {
+    width: 270,
+    height: 270,
+    marginBottom: 48,
+    alignSelf: 'center',
+    justifyContent: 'center',
+  },
+  accessLocationTouchableOpacity: {
+    flexDirection: 'row',
+    width: 'auto',
+    height: 62,
+    backgroundColor: "#FF7622",
+    marginVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+  },
+  accessLocationTextTouchableOpacity: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: "Sen_700Bold",
+  },
+  errorText: {
+    color: '#E53935',
+    fontSize: 14,
+    fontFamily: "Sen_400Regular",
+    textAlign: 'center',
+    marginTop: 8
+  },
+  accessLocationText: {
+    color: '#646982',
+    fontSize: 14,
+    marginTop: 32,
+    alignItems: 'center',
+    fontFamily: "Sen_400Regular",
+    textAlign: 'center'
+  },
+  iconLocation: {
+    marginLeft: 16,
+    backgroundColor: '#ff914e',
+    padding: 10,
+    borderTopLeftRadius: 100,
+    borderTopRightRadius: 100,
+    borderBottomLeftRadius: 100,
+    borderBottomRightRadius: 100,
+  }
 })
 
-export default LocationAccess
+export default LocationAcess

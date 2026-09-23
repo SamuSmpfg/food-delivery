@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react'
 import { useRouter } from 'expo-router';
 import { useSignUp } from '@clerk/clerk-expo';
 
-const CODE_LENGTH = 6;
+const CODE_LENGTH = 4;
 
 const PasswordVerification = () => {
   const { signUp, setActive, isLoaded } = useSignUp();
@@ -49,7 +49,7 @@ const PasswordVerification = () => {
     const fullCode = code.join('');
 
     if (fullCode.length < CODE_LENGTH) {
-      setError('Digite o código completo');
+      setError('Type the entire code');
       return;
     }
 
@@ -63,10 +63,10 @@ const PasswordVerification = () => {
         await setActive({ session: result.createdSessionId });
         router.replace('/');
       } else {
-        setError('Não foi possível concluir a verificação.');
+        setError('Could not complete the verification');
       }
     } catch (err: any) {
-      const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Código inválido';
+      const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Invalid Code';
       setError(message);
     } finally {
       setLoading(false);
