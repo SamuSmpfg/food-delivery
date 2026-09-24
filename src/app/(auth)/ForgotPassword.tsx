@@ -1,10 +1,13 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'expo-router';
-import { useSignIn } from '@clerk/clerk-expo';
+import { useSignIn, useAuth } from '@clerk/clerk-expo';
+
+const RESEND_SECONDS = 30;
 
 const ForgotPassword = () => {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { isSignedIn, signOut } = useAuth();
   const router = useRouter();
 
   const [step, setStep] = useState<'email' | 'reset'>('email');
@@ -14,6 +17,14 @@ const ForgotPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+
+    const timer = setTimeout(() => setCooldown((current) => current - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const getErrorMessage = (err: any, fallback: string) =>
     err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || fallback;
@@ -22,9 +33,33 @@ const ForgotPassword = () => {
     if (!isLoaded || loading) return;
 
     if (!emailAddress.trim()) {
-      setError('Digite seu email');
+      setError('Type your Email');
       return;
     }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      if (isSignedIn) {
+        await signOut();
+      }
+
+      await signIn.create({
+        strategy: 'reset_password_email_code',
+        identifier: emailAddress.trim(),
+      });
+      setStep('reset');
+      setCooldown(RESEND_SECONDS);
+    } catch (err: any) {
+      setError(getErrorMessage(err, 'Error sending the code'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onResendPress = async () => {
+    if (!isLoaded || loading || cooldown > 0) return;
 
     setLoading(true);
     setError('');
@@ -34,9 +69,10 @@ const ForgotPassword = () => {
         strategy: 'reset_password_email_code',
         identifier: emailAddress.trim(),
       });
-      setStep('reset');
+      setCode('');
+      setCooldown(RESEND_SECONDS);
     } catch (err: any) {
-      setError(getErrorMessage(err, 'Erro ao enviar o código'));
+      setError(getErrorMessage(err, 'Error sending the code'));
     } finally {
       setLoading(false);
     }
@@ -46,12 +82,12 @@ const ForgotPassword = () => {
     if (!isLoaded || loading) return;
 
     if (code.length < 6 || !password || !confirmPassword) {
-      setError('Preencha todos os campos');
+      setError('Fill up all the fields');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('As senhas não coincidem');
+      setError('The passwords do not match');
       return;
     }
 
@@ -67,12 +103,12 @@ const ForgotPassword = () => {
 
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
-        router.replace('/');
+        router.replace('/(tabs)/HomeScreen');
       } else {
-        setError('Não foi possível concluir a redefinição.');
+        setError('The reset could not be completed.');
       }
     } catch (err: any) {
-      setError(getErrorMessage(err, 'Código inválido'));
+      setError(getErrorMessage(err, 'Invalid code'));
     } finally {
       setLoading(false);
     }
@@ -170,17 +206,30 @@ const ForgotPassword = () => {
         </TouchableOpacity>
 
         {step === 'reset' ? (
-          <TouchableOpacity
-            onPress={() => {
-              setStep('email');
-              setCode('');
-              setPassword('');
-              setConfirmPassword('');
-              setError('');
-            }}
-          >
-            <Text style={styles.backText}>Use another email</Text>
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity
+              onPress={onResendPress}
+              disabled={loading || cooldown > 0}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.backText, cooldown > 0 && styles.resendTextDisabled]}>
+                {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setStep('email');
+                setCode('');
+                setPassword('');
+                setConfirmPassword('');
+                setError('');
+                setCooldown(0);
+              }}
+            >
+              <Text style={styles.backText}>Use another email</Text>
+            </TouchableOpacity>
+          </View>
         ) : null}
       </ScrollView>
     </View>
@@ -276,6 +325,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 24
+  },
+  resendTextDisabled: {
+    color: '#A0A5BA'
   }
 });
 

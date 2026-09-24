@@ -3,10 +3,12 @@ import React, { useState } from 'react'
 import { Checkbox } from 'expo-checkbox';
 import { useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
-import { useSignIn } from '@clerk/clerk-expo';
+import { useSignIn, useAuth } from '@clerk/clerk-expo';
+import * as Location from 'expo-location'
 
 const SignIn = () => {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { isSignedIn, signOut } = useAuth();
   const router = useRouter();
 
   const [emailAddress, setEmailAddress] = useState('');
@@ -33,6 +35,10 @@ const SignIn = () => {
     setError('');
 
     try {
+      if (isSignedIn) {
+        await signOut();
+      }
+
       const signInAttempt = await signIn.create({
         identifier: emailAddress.trim(),
         password,
@@ -40,7 +46,14 @@ const SignIn = () => {
 
       if (signInAttempt.status === 'complete') {
         await setActive({ session: signInAttempt.createdSessionId });
-        router.replace('/(tabs)/HomeScreen');
+
+        const { status } = await Location.getForegroundPermissionsAsync();
+
+        if (status === 'granted') {
+          router.replace('/(tabs)/HomeScreen');
+        } else {
+          router.replace('/LocationAcess');
+        }
       } else {
         setError('Could not log in, verify your credentials.');
       }
@@ -96,12 +109,15 @@ const SignIn = () => {
 
         <View style={styles.checkboxWrapper}>
           <Checkbox
-            style={styles.checkbox}
             value={isChecked}
             onValueChange={setChecked}
             color={isChecked ? '#FF7622' : undefined}
           />
+          <TouchableOpacity
+          onPress={() => setChecked(!isChecked)}
+          >
           <Text style={styles.checkboxlabel}>Remember me</Text>
+          </TouchableOpacity>
           <TouchableOpacity>
             <Text
               style={styles.textForgotPassword}

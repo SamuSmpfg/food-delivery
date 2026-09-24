@@ -1,10 +1,11 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
 import React, { useState } from 'react'
 import { useRouter } from 'expo-router';
-import { useSignUp } from '@clerk/clerk-expo';
+import { useSignUp, useAuth } from '@clerk/clerk-expo';
 
 const SignUp = () => {
   const { signUp, isLoaded } = useSignUp();
+  const { isSignedIn, signOut } = useAuth();
   const router = useRouter();
 
   const [name, setName] = useState('');
@@ -26,12 +27,12 @@ const SignUp = () => {
     setSubmitted(true);
 
     if (!name.trim() || !emailAddress.trim() || !password || !confirmPassword) {
-      setError('Por favor, complete todos os campos');
+      setError('Please, fill up all the fields');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('As senhas não coincidem');
+      setError('The passwords do not match');
       return;
     }
 
@@ -39,6 +40,10 @@ const SignUp = () => {
     setError('');
 
     try {
+      if (isSignedIn) {
+        await signOut();
+      }
+
       const [firstName, ...rest] = name.trim().split(' ');
       const lastName = rest.join(' ');
 
@@ -53,7 +58,7 @@ const SignUp = () => {
 
       router.navigate('/(auth)/PasswordVerification');
     } catch (err: any) {
-      const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Erro ao criar conta';
+      const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Error on creating an account';
       setError(message);
     } finally {
       setLoading(false);

@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'expo-router';
 import { useSignUp } from '@clerk/clerk-expo';
 
-const CODE_LENGTH = 4;
+const CODE_LENGTH = 6;
+const RESEND_SECONDS = 30;
 
 const PasswordVerification = () => {
   const { signUp, setActive, isLoaded } = useSignUp();
@@ -12,7 +13,15 @@ const PasswordVerification = () => {
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cooldown, setCooldown] = useState(RESEND_SECONDS);
   const inputs = useRef<(TextInput | null)[]>([]);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+
+    const timer = setTimeout(() => setCooldown((current) => current - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const handleChange = (text: string, index: number) => {
     const digits = text.replace(/\D/g, '');
@@ -61,12 +70,31 @@ const PasswordVerification = () => {
 
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
-        router.replace('/');
+        router.replace('/LocationAcess');
       } else {
         setError('Could not complete the verification');
       }
     } catch (err: any) {
       const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Invalid Code';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onResendPress = async () => {
+    if (!isLoaded || loading || cooldown > 0) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      setCode(Array(CODE_LENGTH).fill(''));
+      inputs.current[0]?.focus();
+      setCooldown(RESEND_SECONDS);
+    } catch (err: any) {
+      const message = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Error sending the code';
       setError(message);
     } finally {
       setLoading(false);
@@ -117,6 +145,16 @@ const PasswordVerification = () => {
           ) : (
             <Text style={styles.verificationCodeTouchableOpacityText}>VERIFY</Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={onResendPress}
+          disabled={loading || cooldown > 0}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.resendText, cooldown > 0 && styles.resendTextDisabled]}>
+            {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -203,6 +241,16 @@ const styles = StyleSheet.create({
     fontFamily: "Sen_700Bold",
     color: "#FFFFFF",
     fontSize: 14,
+  },
+  resendText: {
+    fontFamily: "Sen_400Regular",
+    color: '#FF7622',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 24
+  },
+  resendTextDisabled: {
+    color: '#A0A5BA'
   }
 });
 
