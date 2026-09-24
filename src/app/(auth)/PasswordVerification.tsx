@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Animated } from 'react-native'
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'expo-router';
 import { useSignUp } from '@clerk/clerk-expo';
@@ -15,6 +15,20 @@ const PasswordVerification = () => {
   const [error, setError] = useState('');
   const [cooldown, setCooldown] = useState(RESEND_SECONDS);
   const inputs = useRef<(TextInput | null)[]>([]);
+
+  const grayScale = useRef(new Animated.Value(0.8)).current;
+  const dashedScale = useRef(new Animated.Value(0.8)).current;
+  const grayOpacity = useRef(new Animated.Value(0)).current;
+  const dashedOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(grayScale, { toValue: 1, useNativeDriver: true, friction: 6 }),
+      Animated.spring(dashedScale, { toValue: 1, useNativeDriver: true, friction: 6 }),
+      Animated.timing(grayOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(dashedOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+    ]).start();
+  }, []);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -104,6 +118,16 @@ const PasswordVerification = () => {
   return (
     <View style={styles.mainContainer}>
       <View style={styles.headerContainer}>
+      <Animated.Image
+                source={require("../../../assets/images/login-gray-rays.png")}
+                resizeMode="contain"
+                style={[styles.raysGray, { opacity: grayOpacity, transform: [{ scale: grayScale }] }]}
+              />
+              <Animated.Image
+                source={require("../../../assets/images/dashed-gray.png")}
+                resizeMode="contain"
+                style={[styles.dashedGray, { opacity: dashedOpacity, transform: [{ scale: dashedScale }] }]}
+              />
         <Text style={styles.mainContainerTitle}>Verification</Text>
         <Text style={styles.mainContainerText}>We have sent a code to your email</Text>
         <Text style={styles.mainContainerTextEmail}>{signUp?.emailAddress ?? ''}</Text>
@@ -251,7 +275,21 @@ const styles = StyleSheet.create({
   },
   resendTextDisabled: {
     color: '#A0A5BA'
-  }
+  },
+    raysGray: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: 150,
+      height: 160,
+    },
+    dashedGray: {
+      position: "absolute",
+      top: 40,
+      right: -10,
+      width: 90,
+      height: 300,
+    }
 });
 
 export default PasswordVerification;

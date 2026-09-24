@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Animated } from 'react-native'
+import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'expo-router';
 import { useSignIn, useAuth } from '@clerk/clerk-expo';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const RESEND_SECONDS = 30;
 
@@ -14,10 +15,26 @@ const ForgotPassword = () => {
   const [emailAddress, setEmailAddress] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [cooldown, setCooldown] = useState(0);
+
+  const grayScale = useRef(new Animated.Value(0.8)).current;
+  const dashedScale = useRef(new Animated.Value(0.8)).current;
+  const grayOpacity = useRef(new Animated.Value(0)).current;
+  const dashedOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(grayScale, { toValue: 1, useNativeDriver: true, friction: 6 }),
+      Animated.spring(dashedScale, { toValue: 1, useNativeDriver: true, friction: 6 }),
+      Animated.timing(grayOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(dashedOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+    ]).start();
+  }, []);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -117,6 +134,16 @@ const ForgotPassword = () => {
   return (
     <View style={styles.mainContainer}>
       <View style={styles.headerContainer}>
+        <Animated.Image
+          source={require("../../../assets/images/login-gray-rays.png")}
+          resizeMode="contain"
+          style={[styles.raysGray, { opacity: grayOpacity, transform: [{ scale: grayScale }] }]}
+        />
+        <Animated.Image
+          source={require("../../../assets/images/dashed-gray.png")}
+          resizeMode="contain"
+          style={[styles.dashedGray, { opacity: dashedOpacity, transform: [{ scale: dashedScale }] }]}
+        />
         <Text style={styles.mainContainerTitle}>Forgot Password</Text>
         <Text style={styles.mainContainerText}>
           {step === 'email'
@@ -163,28 +190,62 @@ const ForgotPassword = () => {
             />
 
             <Text style={[styles.inputLabel, styles.inputLabelSpaced]}>NEW PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="* * * * * * * * * *"
-              placeholderTextColor="#A0A5BA"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              textContentType="newPassword"
-            />
+            <View style={styles.inputInPass}>
+              <TextInput
+                style={[styles.input, styles.inputPassword]}
+                placeholder="* * * * * * * * * *"
+                placeholderTextColor="#A0A5BA"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="newPassword"
+              />
+              <TouchableOpacity
+                style={styles.eye}
+                onPress={() => setShowPassword(!showPassword)}
+                activeOpacity={0.6}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="#B4B9CA"
+                />
+              </TouchableOpacity>
+            </View>
 
             <Text style={[styles.inputLabel, styles.inputLabelSpaced]}>RE-TYPE PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="* * * * * * * * * *"
-              placeholderTextColor="#A0A5BA"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              textContentType="newPassword"
-            />
+            <View style={styles.inputInPass}>
+              <TextInput
+                style={[styles.input, styles.inputPassword]}
+                placeholder="* * * * * * * * * *"
+                placeholderTextColor="#A0A5BA"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="newPassword"
+              />
+              <TouchableOpacity
+                style={styles.eye}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                activeOpacity={0.6}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="#B4B9CA"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -223,6 +284,8 @@ const ForgotPassword = () => {
                 setCode('');
                 setPassword('');
                 setConfirmPassword('');
+                setShowPassword(false);
+                setShowConfirmPassword(false);
                 setError('');
                 setCooldown(0);
               }}
@@ -296,6 +359,22 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 10,
     paddingLeft: 16
   },
+  inputInPass: {
+    position: 'relative',
+    justifyContent: 'center'
+  },
+  inputPassword: {
+    paddingRight: 52
+  },
+  eye: {
+    position: 'absolute',
+    right: 0,
+    top: 10,
+    width: 52,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
   errorText: {
     fontFamily: "Sen_400Regular",
     color: '#E53935',
@@ -328,6 +407,20 @@ const styles = StyleSheet.create({
   },
   resendTextDisabled: {
     color: '#A0A5BA'
+  },
+  raysGray: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 150,
+    height: 160,
+  },
+  dashedGray: {
+    position: "absolute",
+    top: 40,
+    right: -10,
+    width: 90,
+    height: 300,
   }
 });
 
