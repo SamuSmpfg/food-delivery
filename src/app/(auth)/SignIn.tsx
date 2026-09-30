@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Animated } from 'react-native'
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Checkbox } from 'expo-checkbox';
 import { useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';

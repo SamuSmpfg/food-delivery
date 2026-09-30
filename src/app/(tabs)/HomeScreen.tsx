@@ -1,25 +1,19 @@
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ScrollView, Modal } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal } from 'react-native'
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Feather from '@expo/vector-icons/Feather';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Entypo from '@expo/vector-icons/Entypo';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { LinearGradient }  from 'expo-linear-gradient';
-
-const CATEGORIES = [
-  { id: '1', name: 'All' },
-  { id: '2', name: 'Hot Dog' },
-  { id: '3', name: 'Burger' },
-  { id: '4', name: 'Pizza' },
-  { id: '5', name: 'Ice Cream' }
-]
+import { useRouter } from 'expo-router';
+import { CATEGORIES, FOODS, RESTAURANTS } from '../../data/mockData'
 
 const HomeScreen = () => {
+  const router = useRouter()
 
-  const [searchPlate, setSearchPlate] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('1');
+  const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0].id);
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
@@ -29,6 +23,25 @@ const HomeScreen = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  const selectedCategoryName = CATEGORIES.find((category) => category.id === selectedCategory)?.name ?? 'All'
+
+  const visibleRestaurants = useMemo(() => {
+    if (selectedCategoryName === 'All') return RESTAURANTS
+    const restaurantIds = FOODS
+      .filter((food) => food.category === selectedCategoryName)
+      .map((food) => food.restaurantId)
+    return RESTAURANTS.filter((restaurant) => restaurantIds.includes(restaurant.id))
+  }, [selectedCategoryName])
+
+  const getRestaurantCategories = (restaurantId: string) =>
+    Array.from(
+      new Set(
+        FOODS
+          .filter((food) => food.restaurantId === restaurantId)
+          .map((food) => food.category)
+      )
+    ).join(' - ')
 
   return (
     <ScrollView
@@ -62,16 +75,13 @@ const HomeScreen = () => {
             <Text style={styles.welcomeUserBold}> Good Afternoon!</Text>
           </View>
 
-          <View style={styles.searchContainer}>
+          <TouchableOpacity 
+          style={styles.searchContainer}
+          onPress={() => router.navigate('/(tabs)/Search')}
+          >
             <Feather name="search" size={24} color="#A0A5BA" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder= "Search dishes, restaurants"
-              placeholderTextColor="#676767"
-              value={searchPlate}
-              onChangeText={setSearchPlate}
-            />
-          </View>
+              <Text style={styles.searchInput}>Search dishes, restaurants</Text>
+          </TouchableOpacity>
 
           <View style={styles.categoriesHeader}>
             <Text style={styles.allCategoriesText}>All Categories</Text>
@@ -115,7 +125,9 @@ const HomeScreen = () => {
 
         <View style={styles.content}>
           <View style={styles.categoriesHeader}>
-            <Text style={styles.allCategoriesText}>Open Restaurants</Text>
+            <Text style={styles.allCategoriesText}>
+              {selectedCategoryName === 'All' ? 'Open Restaurants' : `${selectedCategoryName} Restaurants`}
+            </Text>
             <View style={styles.seeAllContent}>
               <TouchableOpacity style={styles.seeAllTouchableOpacity}>
                 <Text style={styles.seeAllText}>See All</Text>
@@ -126,71 +138,35 @@ const HomeScreen = () => {
         </View>
 
         <View style={styles.openRestaurantsContainer}>
-          <View>
-            <View style={styles.restaurantsImage}/>
-            <Text style={styles.restaurantName}>Rose Garden Restaurant</Text>
-            <Text style={styles.restaurantPlates}>Burger - Chiken - Riche - Wings </Text>
-            <View style={styles.restaurantsExtras}>
-              <View style={styles.restaurantIconAndTextContainer}>
-                <FontAwesome6 name="star" size={30} color="#FF7622" />
-                <Text style={styles.restaurantRatingText}>4.7</Text>
-              </View>
+          {visibleRestaurants.map((restaurant) => (
+            <TouchableOpacity
+              key={restaurant.id}
+              activeOpacity={0.9}
+              onPress={() =>
+                router.navigate({ pathname: '/(tabs)/RestaurantView', params: { id: restaurant.id } })
+              }
+            >
+              <View style={styles.restaurantsImage}/>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.restaurantName}>{restaurant.name}</Text>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.restaurantPlates}>{getRestaurantCategories(restaurant.id)}</Text>
+              <View style={styles.restaurantsExtras}>
+                <View style={styles.restaurantIconAndTextContainer}>
+                  <FontAwesome6 name="star" size={30} color="#FF7622" />
+                  <Text style={styles.restaurantRatingText}>{restaurant.rating}</Text>
+                </View>
 
-              <View style={styles.restaurantIconAndTextContainer}>
-                <MaterialCommunityIcons name="truck-fast-outline" size={30} color="#FF7622" />
-                <Text style={styles.restaurantExtrasText}>Free</Text>
-              </View>
+                <View style={styles.restaurantIconAndTextContainer}>
+                  <Feather name="truck" size={30} color="#FF7622" />
+                  <Text style={styles.restaurantExtrasText}>{restaurant.delivery}</Text>
+                </View>
 
-              <View style={styles.restaurantIconAndTextContainer}>
-                <AntDesign name="clock-circle" size={30} color="#FF7622" />
-                <Text style={styles.restaurantExtrasText}>20 min</Text>
+                <View style={styles.restaurantIconAndTextContainer}>
+                  <AntDesign name="clock-circle" size={30} color="#FF7622" />
+                  <Text style={styles.restaurantExtrasText}>{restaurant.time}</Text>
+                </View>
               </View>
-            </View>
-          </View>
-
-          <View>
-            <View style={styles.restaurantsImage}/>
-            <Text style={styles.restaurantName}>Mamma Mia</Text>
-            <Text style={styles.restaurantPlates}>Burger - Chiken - Riche - Wings </Text>
-            <View style={styles.restaurantsExtras}>
-              <View style={styles.restaurantIconAndTextContainer}>
-                <FontAwesome6 name="star" size={30} color="#FF7622" />
-                <Text style={styles.restaurantRatingText}>3.9</Text>
-              </View>
-
-              <View style={styles.restaurantIconAndTextContainer}>
-                <MaterialCommunityIcons name="truck-fast-outline" size={30} color="#FF7622" />
-                <Text style={styles.restaurantExtrasText}>$15</Text>
-              </View>
-
-              <View style={styles.restaurantIconAndTextContainer}>
-                <AntDesign name="clock-circle" size={30} color="#FF7622" />
-                <Text style={styles.restaurantExtrasText}>35 min</Text>
-              </View>
-            </View>
-          </View>
-
-          <View>
-            <View style={styles.restaurantsImage}/>
-            <Text style={styles.restaurantName}>Madero Burguer</Text>
-            <Text style={styles.restaurantPlates}>Burger - Chiken - Riche - Wings </Text>
-            <View style={styles.restaurantsExtras}>
-              <View style={styles.restaurantIconAndTextContainer}>
-                <FontAwesome6 name="star" size={30} color="#FF7622" />
-                <Text style={styles.restaurantRatingText}>4.3</Text>
-              </View>
-
-              <View style={styles.restaurantIconAndTextContainer}>
-                <MaterialCommunityIcons name="truck-fast-outline" size={30} color="#FF7622" />
-                <Text style={styles.restaurantExtrasText}>$10</Text>
-              </View>
-
-              <View style={styles.restaurantIconAndTextContainer}>
-                <AntDesign name="clock-circle" size={30} color="#FF7622" />
-                <Text style={styles.restaurantExtrasText}>25 min</Text>
-              </View>
-            </View>
-          </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <Modal
@@ -341,6 +317,8 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontFamily: "Sen_400Regular",
     fontSize: 14,
+    color: '#676767',
+    marginTop: 38
   },
   categoriesHeader: {
     flexDirection: 'row',
