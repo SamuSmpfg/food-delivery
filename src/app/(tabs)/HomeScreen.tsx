@@ -9,9 +9,11 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { LinearGradient }  from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { CATEGORIES, FOODS, RESTAURANTS } from '../../data/mockData'
+import { useCart } from '../../context/CartContext'
 
 const HomeScreen = () => {
   const router = useRouter()
+  const { count } = useCart()
 
   const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0].id);
   const [modalVisible, setModalVisible] = useState(false);
@@ -50,7 +52,10 @@ const HomeScreen = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
           <View style={styles.headerContainer}>
-            <TouchableOpacity style={styles.menuTouchableOpacity}>
+            <TouchableOpacity 
+            style={styles.menuTouchableOpacity}
+            onPress={() => router.navigate('/(tabs)/Profile')}
+            >
               <Feather name="menu" size={24} color="#181C2E" />
             </TouchableOpacity>
 
@@ -64,9 +69,14 @@ const HomeScreen = () => {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.shopIcon}>
+            <TouchableOpacity 
+            style={styles.shopIcon}
+            onPress={() => router.navigate('/(tabs)/Cart')}
+            >
               <Feather name="shopping-bag" size={24} color="white" />
-              <Text style={styles.shopIconNotifications}>2</Text>
+              {count > 0 && (
+                <Text style={styles.shopIconNotifications}>{count > 99 ? '99+' : count}</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -271,15 +281,18 @@ const styles = StyleSheet.create({
   shopIconNotifications: {
     fontFamily: "Sen_700Bold",
     color: "#fff",
-    fontSize: 16,
+    fontSize: 14,
     backgroundColor: '#FF7622',
-    width: 25,
+    minWidth: 25,
     height: 25,
+    lineHeight: 25,
+    textAlign: 'center',
+    overflow: 'hidden',
     borderTopLeftRadius: 100,
     borderTopRightRadius: 100,
     borderBottomLeftRadius: 100,
     borderBottomRightRadius: 100,
-    paddingLeft: 6,
+    paddingHorizontal: 4,
     position: "absolute",
     top: -3,
     left: 20,
@@ -497,7 +510,8 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1
+    zIndex: 1,
+    
   }
 })
 

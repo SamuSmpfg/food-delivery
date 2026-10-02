@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity, Dimensions } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, Dimensions, Image } from 'react-native'
 import React, { useState, useRef } from 'react'
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native";
@@ -11,21 +11,19 @@ const slides = [
     key: "1",
     title: "All your favorites",
     description: "Get all your loved foods in one once place, you just place the orer we do the rest",
+    image: require('../../assets/images/choosing-food.png')
   },
   {
     key: "2",
-    title: "All your favorites",
+    title: "Order from choosen chef",
     description: "Get all your loved foods in one once place, you just place the orer we do the rest",
+    image: require('../../assets/images/chef.png')
   },
   {
     key: "3",
-    title: "Order from choosen chef",
-    description: "Get all your loved foods in one once place, you just place the orer we do the rest",
-  },
-  {
-    key: "4",
     title: "Free delivery offers",
     description: "Get all your loved foods in one once place, you just place the orer we do the rest",
+    image: require('../../assets/images/motoboy.png')
   },
 ];
 
@@ -50,7 +48,7 @@ const onBoarding = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <FlatList
         ref={flatListRef}
         data={slides}
@@ -62,7 +60,7 @@ const onBoarding = () => {
         keyExtractor={(item) => item.key}
         renderItem={({ item }) => (
           <View style={[styles.container, { width }]}>
-            <View style={styles.onBoardingImage}></View>
+            <Image source={item.image} style={styles.image} resizeMode="contain" />
             <Text style={styles.headerSlide}>{item.title}</Text>
             <Text style={styles.paragraphSlide}>{item.description}</Text>
           </View>
@@ -96,15 +94,10 @@ const styles = StyleSheet.create({
     container: {
         alignItems: "center"
     },
-    onBoardingImage: {
-        width: 240,
-        height: 292,
-        backgroundColor: "#98A8B8",
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        borderBottomLeftRadius: 12,
-        borderBottomRightRadius: 12,
-        marginTop: 114
+    image: {
+        width: width * 0.9,
+        height: width * 0.9,
+        marginTop: 40
     },
     headerSlide: {
         fontSize: 18,

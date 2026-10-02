@@ -34,7 +34,15 @@
         }
       ],
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+  "@stripe/stripe-react-native",
+  {
+    "merchantIdentifier": "merchant.com.dfood",
+    "enableGooglePay": false
+  }
+],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -8,6 +8,7 @@ import Feather from '@expo/vector-icons/Feather'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6'
 import { FOODS, RESTAURANTS } from '../../data/mockData'
+import { useCart } from '../../context/CartContext'
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name']
 
@@ -25,6 +26,7 @@ const FoodDetails = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { id } = useLocalSearchParams<{ id: string }>()
+  const { addItem } = useCart()
 
   const [favorite, setFavorite] = useState(false)
   const [size, setSize] = useState(14)
@@ -47,6 +49,18 @@ const FoodDetails = () => {
   }
 
   const total = food.price * quantity
+
+  const handleAddToCart = () => {
+    addItem({
+      id: food.id,
+      name: food.name,
+      restaurant: food.restaurant,
+      price: food.price,
+      size: `${size}"`,
+      quantity
+    })
+    router.navigate('/(tabs)/Cart')
+  }
 
   return (
     <View style={styles.container}>
@@ -147,7 +161,7 @@ const FoodDetails = () => {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.addToCart}>
+        <TouchableOpacity style={styles.addToCart} onPress={handleAddToCart}>
           <Text style={styles.addToCartText}>ADD TO CART</Text>
         </TouchableOpacity>
       </View>

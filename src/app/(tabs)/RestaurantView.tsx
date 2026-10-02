@@ -6,13 +6,18 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import Feather from '@expo/vector-icons/Feather'
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6'
 import { FOODS, RESTAURANTS, chunk } from '../../data/mockData'
+import FilterModal, { RestaurantFilters } from '../../components/FilterModal'
+import { useCart } from '../../context/CartContext'
 
 const RestaurantView = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { id } = useLocalSearchParams<{ id: string }>()
+  const { addItem } = useCart()
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [filterVisible, setFilterVisible] = useState(false)
+  const [filters, setFilters] = useState<RestaurantFilters | null>(null)
 
   const restaurant = RESTAURANTS.find((item) => item.id === id)
 
@@ -42,111 +47,129 @@ const RestaurantView = () => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
-    >
-      <View style={styles.hero}>
-        <View style={[styles.heroButtons, { top: insets.top + 16 }]}>
-          <TouchableOpacity style={styles.circleButton} onPress={() => router.back()}>
-            <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.circleButton}>
-            <Feather name="more-horizontal" size={22} color="#181C2E" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.dots}>
-          {[0, 1, 2, 3, 4].map((index) => (
-            <View
-              key={index}
-              style={index === 2 ? styles.dotActiveOuter : styles.dot}
-            >
-              {index === 2 && <View style={styles.dotActiveInner} />}
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <FontAwesome6 name="star" size={18} color="#FF7622" />
-            <Text style={styles.infoBold}>{restaurant.rating}</Text>
+    <>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.hero}>
+          <View style={[styles.heroButtons, { top: insets.top + 16 }]}>
+            <TouchableOpacity style={styles.circleButton} onPress={() => router.back()}>
+              <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.circleButton} onPress={() => setFilterVisible(true)}>
+              <Feather name="more-horizontal" size={22} color="#181C2E" />
+            </TouchableOpacity>
           </View>
-          <View style={styles.infoItem}>
-            <Feather name="truck" size={18} color="#FF7622" />
-            <Text style={styles.infoText}>{restaurant.delivery}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Feather name="clock" size={18} color="#FF7622" />
-            <Text style={styles.infoText}>{restaurant.time}</Text>
-          </View>
-        </View>
 
-        <Text style={styles.restaurantName}>{restaurant.name}</Text>
-        <Text style={styles.description}>{restaurant.description}</Text>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoriesScroll}
-          contentContainerStyle={styles.categoriesList}
-        >
-          {categories.map((category) => {
-            const selected = category === activeCategory
-            return (
-              <TouchableOpacity
-                key={category}
-                style={[styles.categoryChip, selected && styles.categoryChipSelected]}
-                onPress={() => setSelectedCategory(category)}
+          <View style={styles.dots}>
+            {[0, 1, 2, 3, 4].map((index) => (
+              <View
+                key={index}
+                style={index === 2 ? styles.dotActiveOuter : styles.dot}
               >
-                <Text style={[styles.categoryText, selected && styles.categoryTextSelected]}>
-                  {category}
-                </Text>
-              </TouchableOpacity>
-            )
-          })}
-        </ScrollView>
-
-        <Text style={styles.sectionTitle}>
-          {activeCategory} ({visibleFoods.length})
-        </Text>
-
-        <View style={styles.foodGrid}>
-          {chunk(visibleFoods, 2).map((row, rowIndex) => (
-            <View key={rowIndex} style={styles.foodRow}>
-              {row.map((food) => (
-                <TouchableOpacity
-                  key={food.id}
-                  style={styles.foodCard}
-                  activeOpacity={0.9}
-                  onPress={() =>
-                    router.navigate({ pathname: '/(tabs)/FoodDetails', params: { id: food.id } })
-                  }
-                >
-                  <View style={styles.foodCardImage} />
-                  <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardName}>
-                    {food.name}
-                  </Text>
-                  <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardRestaurant}>
-                    {food.restaurant}
-                  </Text>
-                  <View style={styles.foodCardFooter}>
-                    <Text style={styles.foodCardPrice}>${food.price}</Text>
-                    <TouchableOpacity style={styles.addButton}>
-                      <Feather name="plus" size={20} color="white" />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {row.length === 1 && <View style={styles.foodCardSpacer} />}
-            </View>
-          ))}
+                {index === 2 && <View style={styles.dotActiveInner} />}
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
-    </ScrollView>
+
+        <View style={styles.content}>
+          <View style={styles.infoRow}>
+            <View style={styles.infoItem}>
+              <FontAwesome6 name="star" size={18} color="#FF7622" />
+              <Text style={styles.infoBold}>{restaurant.rating}</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Feather name="truck" size={18} color="#FF7622" />
+              <Text style={styles.infoText}>{restaurant.delivery}</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Feather name="clock" size={18} color="#FF7622" />
+              <Text style={styles.infoText}>{restaurant.time}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.restaurantName}>{restaurant.name}</Text>
+          <Text style={styles.description}>{restaurant.description}</Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoriesScroll}
+            contentContainerStyle={styles.categoriesList}
+          >
+            {categories.map((category) => {
+              const selected = category === activeCategory
+              return (
+                <TouchableOpacity
+                  key={category}
+                  style={[styles.categoryChip, selected && styles.categoryChipSelected]}
+                  onPress={() => setSelectedCategory(category)}
+                >
+                  <Text style={[styles.categoryText, selected && styles.categoryTextSelected]}>
+                    {category}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </ScrollView>
+
+          <Text style={styles.sectionTitle}>
+            {activeCategory} ({visibleFoods.length})
+          </Text>
+
+          <View style={styles.foodGrid}>
+            {chunk(visibleFoods, 2).map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.foodRow}>
+                {row.map((food) => (
+                  <TouchableOpacity
+                    key={food.id}
+                    style={styles.foodCard}
+                    activeOpacity={0.9}
+                    onPress={() =>
+                      router.navigate({ pathname: '/(tabs)/FoodDetails', params: { id: food.id } })
+                    }
+                  >
+                    <View style={styles.foodCardImage} />
+                    <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardName}>
+                      {food.name}
+                    </Text>
+                    <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardRestaurant}>
+                      {food.restaurant}
+                    </Text>
+                    <View style={styles.foodCardFooter}>
+                      <Text style={styles.foodCardPrice}>${food.price}</Text>
+                      <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={() =>
+                          addItem({
+                            id: food.id,
+                            name: food.name,
+                            restaurant: food.restaurant,
+                            price: food.price
+                          })
+                        }
+                      >
+                        <Feather name="plus" size={20} color="white" />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                {row.length === 1 && <View style={styles.foodCardSpacer} />}
+              </View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+
+      <FilterModal
+        visible={filterVisible}
+        onClose={() => setFilterVisible(false)}
+        onApply={setFilters}
+      />
+    </>
   )
 }
 
