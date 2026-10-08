@@ -9,6 +9,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { KEYWORDS, RESTAURANTS, FOODS, FAST_FOODS, chunk } from '../../data/mockData'
 import FilterModal, { RestaurantFilters } from '@/components/FilterModal';
 import { useCart } from '@/context/CartContext';
+import { hasActiveFilters, matchesFoodFilters, matchesRestaurantFilters } from '@/lib/filters';
 
 const Search = () => {
 
@@ -21,25 +22,34 @@ const Search = () => {
   const isSearching = normalizedQuery.length > 0
   const [filterVisible, setFilterVisible] = useState(false)
   const [filters, setFilters] = useState<RestaurantFilters | null>(null)
-  
+  const filtersActive = hasActiveFilters(filters)
 
   const filteredFoods = useMemo(() => {
     if (!normalizedQuery) return []
-    return FOODS.filter((food) =>
-      food.name.toLowerCase().includes(normalizedQuery) ||
-      food.restaurant.toLowerCase().includes(normalizedQuery) ||
-      food.category.toLowerCase().includes(normalizedQuery)
-    )
-  }, [normalizedQuery])
+    return FOODS.filter((food) => {
+      const matchesQuery =
+        food.name.toLowerCase().includes(normalizedQuery) ||
+        food.restaurant.toLowerCase().includes(normalizedQuery) ||
+        food.category.toLowerCase().includes(normalizedQuery)
+      if (!matchesQuery) return false
+
+      const restaurant = RESTAURANTS.find((item) => item.id === food.restaurantId)
+      return matchesFoodFilters(food, restaurant, filters)
+    })
+  }, [normalizedQuery, filters])
 
   const filteredRestaurants = useMemo(() => {
     if (!normalizedQuery) return []
     const restaurantsWithFood = filteredFoods.map((food) => food.restaurant)
-    return RESTAURANTS.filter((restaurant) =>
-      restaurant.name.toLowerCase().includes(normalizedQuery) ||
-      restaurantsWithFood.includes(restaurant.name)
-    )
-  }, [normalizedQuery, filteredFoods])
+    return RESTAURANTS.filter((restaurant) => {
+      const matchesQuery =
+        restaurant.name.toLowerCase().includes(normalizedQuery) ||
+        restaurantsWithFood.includes(restaurant.name)
+      if (!matchesQuery) return false
+
+      return matchesRestaurantFilters(restaurant, filters)
+    })
+  }, [normalizedQuery, filteredFoods, filters])
 
   const handleClear = () => {
     setQuery('')
@@ -108,10 +118,14 @@ const Search = () => {
             <Feather name="search" size={22} color="white" />
           </TouchableOpacity>
           <TouchableOpacity 
-          style={styles.filterActionButton}
+          style={[styles.filterActionButton, filtersActive && styles.filterActionButtonActive]}
           onPress={() => setFilterVisible(true)}
           >
-            <Ionicons name="options-outline" size={24} color="#181C2E" />
+            <Ionicons
+              name="options-outline"
+              size={24}
+              color={filtersActive ? '#fff' : '#181C2E'}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -192,7 +206,11 @@ const Search = () => {
     if (filteredFoods.length === 0 && filteredRestaurants.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>Could not find your dish, try another plate :(</Text>
+          <Text style={styles.emptyText}>
+            {filtersActive
+              ? 'Nothing matches your filters, try changing them :('
+              : 'Could not find your dish, try another plate :('}
+          </Text>
         </View>
       )
     }
@@ -262,13 +280,6 @@ const Search = () => {
             ))}
           </>
         )}
-
-
-            <FilterModal
-        visible={filterVisible}
-        onClose={() => setFilterVisible(false)}
-        onApply={setFilters}
-      />
       </>
     )
   }
@@ -308,6 +319,12 @@ const Search = () => {
 
         {isSearching ? renderResults() : renderDefaultContent()}
       </SafeAreaView>
+
+      <FilterModal
+        visible={filterVisible}
+        onClose={() => setFilterVisible(false)}
+        onApply={setFilters}
+      />
     </ScrollView>
     
   )
@@ -408,6 +425,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECF0F4',
     alignItems: 'center',
     justifyContent: 'center'
+  },
+  filterActionButtonActive: {
+    backgroundColor: '#FF7622'
   },
   searchContainer: {
     flexDirection: 'row',

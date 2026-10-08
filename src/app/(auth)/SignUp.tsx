@@ -3,6 +3,7 @@ import  { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'expo-router';
 import { useSignUp, useAuth } from '@clerk/clerk-expo';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const SignUp = () => {
   const { signUp, isLoaded } = useSignUp();
@@ -100,6 +101,15 @@ const SignUp = () => {
             resizeMode="contain"
             style={[styles.dashedGray, { opacity: dashedOpacity, transform: [{ scale: dashedScale }] }]}
           />
+
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.goBackTouchableOpacity}
+          >
+              <MaterialIcons name="keyboard-arrow-left" size={28} color="#5E616F" />
+          </TouchableOpacity>
+
+
           <Text style={styles.mainContainerTitle}>Sign Up</Text>
           <Text style={styles.mainContainerText}>Please sign up to get started</Text>
         </View>
@@ -238,6 +248,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#121223',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24
+  },
+  goBackTouchableOpacity: {
+    backgroundColor: '#fff',
+    height: 45,
+    width: 45,
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: "auto",
+    marginBottom: 24
   },
   logInSpace: {
     flex: 1,

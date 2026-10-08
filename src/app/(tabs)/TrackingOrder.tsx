@@ -39,7 +39,7 @@ const TrackingOrder = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { from } = useLocalSearchParams<{ from?: string }>()
-  const { order } = useCart()
+  const { order, completeOrder } = useCart()
   const { latitude, longitude, getLocation } = useLocation()
   const [now, setNow] = useState(Date.now())
 
@@ -127,8 +127,15 @@ const TrackingOrder = () => {
   })
 
   const elapsed = order ? now - order.placedAt : 0
-  const stage = Math.min(STEPS.length - 1, 1 + Math.floor(elapsed / STEP_INTERVAL_MS))
+  const delivered = !!order && elapsed >= etaMinutes * 60000
+  const stage = delivered
+    ? STEPS.length
+    : Math.min(STEPS.length - 1, 1 + Math.floor(elapsed / STEP_INTERVAL_MS))
   const remaining = Math.max(0, Math.ceil((etaMinutes * 60000 - elapsed) / 60000))
+
+  useEffect(() => {
+    if (delivered) completeOrder()
+  }, [delivered])
 
   const hasLocation = latitude !== null && longitude !== null
 
@@ -196,8 +203,10 @@ const TrackingOrder = () => {
 
             <Animated.View style={[styles.details, { opacity: detailsOpacity }]}>
               <View style={styles.etaBlock}>
-                <Text style={styles.etaValue}>{remaining} min</Text>
-                <Text style={styles.etaLabel}>ESTIMATED DELIVERY TIME</Text>
+                <Text style={styles.etaValue}>{delivered ? 'Delivered' : `${remaining} min`}</Text>
+                <Text style={styles.etaLabel}>
+                  {delivered ? 'ENJOY YOUR MEAL!' : 'ESTIMATED DELIVERY TIME'}
+                </Text>
               </View>
 
               <View style={styles.steps}>
@@ -295,7 +304,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Sen_400Regular',
     fontSize: 17,
-    color: '#181C2E',
+    color: '#fff',
     marginLeft: 16
   },
   markerOuter: {

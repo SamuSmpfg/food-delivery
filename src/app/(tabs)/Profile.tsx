@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
 import Feather from '@expo/vector-icons/Feather';
@@ -11,11 +11,30 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 const Profile = () => {
 
     const router = useRouter();
-    const { signOut } = useAuth();
     const { user } = useUser();
+    const { signOut } = useAuth();
 
     const firstName = user?.firstName ?? '';
     const email = user?.primaryEmailAddress?.emailAddress ?? '';
+
+const handleSignOut = async () => {
+        Alert.alert('Sign Out', `Are you sure you want to Sign Out?`, [
+          {
+            text: 'Yes',
+            style: 'destructive',
+            onPress: async () => {
+                try {
+                    await signOut();
+                    router.replace('/(auth)/SignIn');
+                } catch (error) {
+                    console.error('Erro ao sair:', error);
+                }
+            },
+          },
+          { text: 'No', style: 'cancel',}
+        ])
+    };
+
 
   return (
     <ScrollView style={styles.scrollViewContainer}>
@@ -184,9 +203,9 @@ const Profile = () => {
             </View>
 
 
-                    <View style={styles.personalInfoContainer}>
+            <View style={styles.personalInfoContainer}>
                 <TouchableOpacity
-                onPress={() => signOut()}
+                onPress={handleSignOut}
                 >
                     <View style={styles.infosTouchableOpacity}>
                         <View style={styles.icons}>

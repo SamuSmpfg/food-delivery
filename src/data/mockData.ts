@@ -15,6 +15,7 @@ export type Restaurant = {
   delivery: string
   time: string
   description: string
+  offers: string[]
 }
 
 export type Food = {
@@ -39,13 +40,13 @@ export const KEYWORDS: Keyword[] = [
 ]
 
 export const RESTAURANTS: Restaurant[] = [
-  { id: '1', name: 'Pansi Restaurant', rating: 4.7, delivery: 'Free', time: '20 min', description: LOREM },
-  { id: '2', name: 'American Spicy Burger Shop', rating: 4.3, delivery: 'Free', time: '25 min', description: LOREM },
-  { id: '3', name: 'Cafenio Coffee Club', rating: 4.0, delivery: 'Free', time: '30 min', description: LOREM },
-  { id: '4', name: 'Uttora Coffe House', rating: 4.5, delivery: 'Free', time: '20 min', description: LOREM },
-  { id: '5', name: 'Rose Garden', rating: 4.6, delivery: 'Free', time: '15 min', description: LOREM },
-  { id: '6', name: 'Kaji Firm Kitchen', rating: 4.2, delivery: 'Free', time: '35 min', description: LOREM },
-  { id: '7', name: 'Kabab Restaurant', rating: 4.4, delivery: 'Free', time: '25 min', description: LOREM },
+  { id: '1', name: 'Pansi Restaurant', rating: 4.7, delivery: 'Free', time: '20 min', description: LOREM, offers: ['Delivery', 'Pick Up', 'Online payment available'] },
+  { id: '2', name: 'American Spicy Burger Shop', rating: 4.3, delivery: 'Free', time: '25 min', description: LOREM, offers: ['Delivery', 'Offer', 'Online payment available'] },
+  { id: '3', name: 'Cafenio Coffee Club', rating: 4.0, delivery: 'Free', time: '30 min', description: LOREM, offers: ['Pick Up', 'Offer'] },
+  { id: '4', name: 'Uttora Coffe House', rating: 4.5, delivery: 'Free', time: '20 min', description: LOREM, offers: ['Delivery', 'Pick Up', 'Offer', 'Online payment available'] },
+  { id: '5', name: 'Rose Garden', rating: 4.6, delivery: 'Free', time: '15 min', description: LOREM, offers: ['Delivery', 'Online payment available'] },
+  { id: '6', name: 'Kaji Firm Kitchen', rating: 4.2, delivery: 'Free', time: '35 min', description: LOREM, offers: ['Delivery', 'Pick Up'] },
+  { id: '7', name: 'Kabab Restaurant', rating: 4.4, delivery: 'Free', time: '25 min', description: LOREM, offers: ['Delivery', 'Pick Up', 'Offer'] },
 ]
 
 const restaurantName = (restaurantId: string) =>

@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'expo-router';
 import { useSignIn, useAuth } from '@clerk/clerk-expo';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 50;
@@ -168,6 +169,8 @@ const ForgotPassword = () => {
   return (
     <View style={styles.mainContainer}>
       <View style={styles.headerContainer}>
+
+
         <Animated.Image
           source={require("../../../assets/images/login-gray-rays.png")}
           resizeMode="contain"
@@ -178,6 +181,13 @@ const ForgotPassword = () => {
           resizeMode="contain"
           style={[styles.dashedGray, { opacity: dashedOpacity, transform: [{ scale: dashedScale }] }]}
         />
+        <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.goBackTouchableOpacity}
+          >
+              <MaterialIcons name="keyboard-arrow-left" size={28} color="#5E616F" />
+          </TouchableOpacity>
+
         <Text style={styles.mainContainerTitle}>Forgot Password</Text>
         <Text style={styles.mainContainerText}>
           {step === 'email'
@@ -356,6 +366,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
   },
+  goBackTouchableOpacity: {
+    backgroundColor: '#fff',
+    height: 45,
+    width: 45,
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: "auto",
+    marginBottom: 24
+  },
   mainContainerTextEmail: {
     fontFamily: "Sen_700Bold",
     color: "#fff",
@@ -367,6 +387,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#121223',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24
   },
   logInSpace: {
     flex: 1,

@@ -9,6 +9,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Feather from '@expo/vector-icons/Feather'
 import { useCart } from '../../context/CartContext'
 import { postJson } from '../../lib/api'
+import { useSavedCards } from '../../lib/cards'
 import useCreateOrder from '../../../hooks/useCreateOrder'
 
 type Method = 'cash' | 'visa' | 'mastercard' | 'paypal'
@@ -39,6 +40,11 @@ const PANELS: Record<Method, { title: string; text: string }> = {
   }
 }
 
+const CARD_TITLES: Record<string, string> = {
+  visa: 'Visa',
+  mastercard: 'Master Card'
+}
+
 const MethodLogo = ({ method }: { method: Method }) => {
   if (method === 'cash') {
     return <MaterialCommunityIcons name="hand-coin-outline" size={30} color="#FF7622" />
@@ -62,6 +68,22 @@ const MethodLogo = ({ method }: { method: Method }) => {
       <Text style={styles.paypalDark}>Pay</Text>
       <Text style={styles.paypalLight}>Pal</Text>
     </Text>
+  )
+}
+
+const MiniBrand = ({ brand }: { brand: string }) => {
+  if (brand === 'visa') {
+    return (
+      <View style={styles.miniBadge}>
+        <Text style={styles.miniVisa}>VISA</Text>
+      </View>
+    )
+  }
+  return (
+    <View style={styles.miniBadge}>
+      <View style={[styles.miniCircle, styles.mastercardRed]} />
+      <View style={[styles.miniCircle, styles.mastercardOrange, { marginLeft: -5 }]} />
+    </View>
   )
 }
 
@@ -89,13 +111,19 @@ const Payment = () => {
   const insets = useSafeAreaInsets()
   const { items, count, total, placeOrder } = useCart()
   const { createOrder } = useCreateOrder()
+  const savedCards = useSavedCards()
 
   const [method, setMethod] = useState<Method>('cash')
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const isCard = method === 'visa' || method === 'mastercard'
   const panel = PANELS[method]
+
+  const brandCards = savedCards.filter((card) => card.brand === method)
+  const activeCard = brandCards.find((card) => card.id === selectedCardId) ?? brandCards[0]
 
   const finish = async (label: string) => {
     const paid = total
@@ -124,6 +152,19 @@ const Payment = () => {
 
     try {
       await finish('Cash')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const payWithSavedCard = async () => {
+    setLoading(true)
+    setError('')
+
+    try {
+      await finish(CARD_TITLES[method] === 'Master Card' ? 'Mastercard' : 'Visa')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -168,6 +209,10 @@ const Payment = () => {
       payWithPayPal()
       return
     }
+    if (activeCard) {
+      payWithSavedCard()
+      return
+    }
     goToAddCard()
   }
 
@@ -198,6 +243,7 @@ const Payment = () => {
                 style={styles.methodItem}
                 onPress={() => {
                   setMethod(item.id)
+                  setDropdownOpen(false)
                   setError('')
                 }}
               >
@@ -215,13 +261,57 @@ const Payment = () => {
           })}
         </ScrollView>
 
-        <View style={styles.panel}>
-          <View style={styles.panelIcon}>
-            <PanelIcon method={method} />
+        {isCard && activeCard ? (
+          <View style={styles.savedCardBox}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.savedCardHeader}
+              onPress={() => brandCards.length > 1 && setDropdownOpen((open) => !open)}
+            >
+              <View style={styles.savedCardInfo}>
+                <Text style={styles.savedCardTitle}>{CARD_TITLES[activeCard.brand]}</Text>
+                <View style={styles.savedCardRow}>
+                  <MiniBrand brand={activeCard.brand} />
+                  <Text style={styles.savedCardNumber}>
+                    {'**************'} {activeCard.last4}
+                  </Text>
+                </View>
+              </View>
+              <MaterialIcons
+                name={dropdownOpen ? 'arrow-drop-up' : 'arrow-drop-down'}
+                size={26}
+                color="#181C2E"
+              />
+            </TouchableOpacity>
+
+            {dropdownOpen &&
+              brandCards
+                .filter((card) => card.id !== activeCard.id)
+                .map((card) => (
+                  <TouchableOpacity
+                    key={card.id}
+                    style={styles.savedCardOption}
+                    onPress={() => {
+                      setSelectedCardId(card.id)
+                      setDropdownOpen(false)
+                    }}
+                  >
+                    <MiniBrand brand={card.brand} />
+                    <Text style={styles.savedCardNumber}>
+                      {'**************'} {card.last4}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
           </View>
-          <Text style={styles.panelTitle}>{panel.title}</Text>
-          <Text style={styles.panelText}>{panel.text}</Text>
-        </View>
+        ) : (
+          <View style={styles.panel}>
+            <View style={styles.panelIcon}>
+              <PanelIcon method={method} />
+            </View>
+            <Text style={styles.panelTitle}>{panel.title}</Text>
+            <Text style={styles.panelText}>{panel.text}</Text>
+          </View>
+        )}
 
         {isCard && (
           <TouchableOpacity style={styles.addNew} onPress={goToAddCard}>
@@ -404,6 +494,66 @@ const styles = StyleSheet.create({
     color: '#6B6E82',
     textAlign: 'center',
     marginTop: 8
+  },
+  savedCardBox: {
+    marginTop: 24,
+    borderRadius: 10,
+    backgroundColor: '#F6F8FA',
+    paddingHorizontal: 16,
+    paddingVertical: 14
+  },
+  savedCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  savedCardInfo: {
+    gap: 8
+  },
+  savedCardTitle: {
+    fontFamily: 'Sen_700Bold',
+    fontSize: 16,
+    color: '#181C2E'
+  },
+  savedCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  savedCardNumber: {
+    fontFamily: 'Sen_400Regular',
+    fontSize: 14,
+    color: '#6B6E82',
+    letterSpacing: 1
+  },
+  savedCardOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 14,
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#E3E8EE'
+  },
+  miniBadge: {
+    width: 32,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: '#1F1F1F',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  miniCircle: {
+    width: 11,
+    height: 11,
+    borderRadius: 100
+  },
+  miniVisa: {
+    fontFamily: 'Sen_700Bold',
+    fontStyle: 'italic',
+    fontSize: 8,
+    color: '#fff'
   },
   addNew: {
     height: 62,

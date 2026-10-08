@@ -8,6 +8,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6'
 import { FOODS, RESTAURANTS, chunk } from '../../data/mockData'
 import FilterModal, { RestaurantFilters } from '../../components/FilterModal'
 import { useCart } from '../../context/CartContext'
+import { hasActiveFilters, matchesFoodFilters } from '../../lib/filters'
 
 const RestaurantView = () => {
   const router = useRouter()
@@ -18,12 +19,20 @@ const RestaurantView = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [filterVisible, setFilterVisible] = useState(false)
   const [filters, setFilters] = useState<RestaurantFilters | null>(null)
+  const filtersActive = hasActiveFilters(filters)
 
   const restaurant = RESTAURANTS.find((item) => item.id === id)
 
+  // Aqui só os critérios de prato (preço) são aplicados: rating e tempo
+  // são do restaurante inteiro e esvaziariam o cardápio.
   const restaurantFoods = useMemo(
-    () => FOODS.filter((food) => food.restaurantId === id),
-    [id]
+    () =>
+      FOODS.filter(
+        (food) =>
+          food.restaurantId === id &&
+          matchesFoodFilters(food, restaurant, filters, { includeRestaurantCriteria: false })
+      ),
+    [id, restaurant, filters]
   )
 
   const categories = useMemo(
@@ -31,7 +40,8 @@ const RestaurantView = () => {
     [restaurantFoods]
   )
 
-  const activeCategory = selectedCategory ?? categories[0]
+  const activeCategory =
+    selectedCategory && categories.includes(selectedCategory) ? selectedCategory : categories[0]
 
   const visibleFoods = restaurantFoods.filter((food) => food.category === activeCategory)
 
@@ -58,8 +68,15 @@ const RestaurantView = () => {
             <TouchableOpacity style={styles.circleButton} onPress={() => router.back()}>
               <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.circleButton} onPress={() => setFilterVisible(true)}>
-              <Feather name="more-horizontal" size={22} color="#181C2E" />
+            <TouchableOpacity
+              style={[styles.circleButton, filtersActive && styles.circleButtonActive]}
+              onPress={() => setFilterVisible(true)}
+            >
+              <Feather
+                name="more-horizontal"
+                size={22}
+                color={filtersActive ? '#fff' : '#181C2E'}
+              />
             </TouchableOpacity>
           </View>
 
@@ -116,51 +133,61 @@ const RestaurantView = () => {
             })}
           </ScrollView>
 
-          <Text style={styles.sectionTitle}>
-            {activeCategory} ({visibleFoods.length})
-          </Text>
+          {restaurantFoods.length === 0 ? (
+            <Text style={styles.emptyText}>
+              {filtersActive
+                ? 'No dishes match your filters, try changing them :('
+                : 'No dishes available'}
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.sectionTitle}>
+                {activeCategory} ({visibleFoods.length})
+              </Text>
 
-          <View style={styles.foodGrid}>
-            {chunk(visibleFoods, 2).map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.foodRow}>
-                {row.map((food) => (
-                  <TouchableOpacity
-                    key={food.id}
-                    style={styles.foodCard}
-                    activeOpacity={0.9}
-                    onPress={() =>
-                      router.navigate({ pathname: '/(tabs)/FoodDetails', params: { id: food.id } })
-                    }
-                  >
-                    <View style={styles.foodCardImage} />
-                    <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardName}>
-                      {food.name}
-                    </Text>
-                    <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardRestaurant}>
-                      {food.restaurant}
-                    </Text>
-                    <View style={styles.foodCardFooter}>
-                      <Text style={styles.foodCardPrice}>${food.price}</Text>
+              <View style={styles.foodGrid}>
+                {chunk(visibleFoods, 2).map((row, rowIndex) => (
+                  <View key={rowIndex} style={styles.foodRow}>
+                    {row.map((food) => (
                       <TouchableOpacity
-                        style={styles.addButton}
+                        key={food.id}
+                        style={styles.foodCard}
+                        activeOpacity={0.9}
                         onPress={() =>
-                          addItem({
-                            id: food.id,
-                            name: food.name,
-                            restaurant: food.restaurant,
-                            price: food.price
-                          })
+                          router.navigate({ pathname: '/(tabs)/FoodDetails', params: { id: food.id } })
                         }
                       >
-                        <Feather name="plus" size={20} color="white" />
+                        <View style={styles.foodCardImage} />
+                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardName}>
+                          {food.name}
+                        </Text>
+                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardRestaurant}>
+                          {food.restaurant}
+                        </Text>
+                        <View style={styles.foodCardFooter}>
+                          <Text style={styles.foodCardPrice}>${food.price}</Text>
+                          <TouchableOpacity
+                            style={styles.addButton}
+                            onPress={() =>
+                              addItem({
+                                id: food.id,
+                                name: food.name,
+                                restaurant: food.restaurant,
+                                price: food.price
+                              })
+                            }
+                          >
+                            <Feather name="plus" size={20} color="white" />
+                          </TouchableOpacity>
+                        </View>
                       </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
+                    ))}
+                    {row.length === 1 && <View style={styles.foodCardSpacer} />}
+                  </View>
                 ))}
-                {row.length === 1 && <View style={styles.foodCardSpacer} />}
               </View>
-            ))}
-          </View>
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -201,6 +228,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center'
+  },
+  circleButtonActive: {
+    backgroundColor: '#FF7622'
   },
   dots: {
     position: 'absolute',
@@ -305,6 +335,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#32343E',
     marginTop: 24
+  },
+  emptyText: {
+    fontFamily: 'Sen_400Regular',
+    fontSize: 16,
+    color: '#646982',
+    textAlign: 'center',
+    marginTop: 40
   },
   foodGrid: {
     marginTop: 16,

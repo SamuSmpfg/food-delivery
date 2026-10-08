@@ -23,7 +23,7 @@ const PaymentSuccess = () => {
         <Text style={styles.text}>
           {isCash
             ? `Pay $${total} in cash when your order arrives.`
-            : `Your ${method} payment of $${total} was confirmed.`}
+            : `You successfully maked a payment, enjoy our service!`}
         </Text>
       </View>
 

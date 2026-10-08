@@ -54,7 +54,34 @@ const useOrders = () => {
     )
   }, [])
 
-  return { orders, loading, error, refetch, cancelOrder }
+  const completeOrder = useCallback(async (id: string) => {
+    const token = await getTokenRef.current()
+    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/orders/${id}/complete`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) throw new Error('complete failed')
+    setOrders((prev) =>
+      prev.map((order) =>
+        order._id === id ? { ...order, status: 'delivered' } : order
+      )
+    )
+  }, [])
+
+  const completeLatestOrder = useCallback(async () => {
+    const token = await getTokenRef.current()
+    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) throw new Error('load failed')
+    const data: Order[] = await response.json()
+    const target = data.find(
+      (order) => order.status !== 'delivered' && order.status !== 'cancelled'
+    )
+    if (target) await completeOrder(target._id)
+  }, [completeOrder])
+
+  return { orders, loading, error, refetch, cancelOrder, completeOrder, completeLatestOrder }
 }
 
 export default useOrders

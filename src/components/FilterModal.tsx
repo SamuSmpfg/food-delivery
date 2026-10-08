@@ -4,9 +4,9 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 
 export type RestaurantFilters = {
   offers: string[]
-  deliverTime: string
-  pricing: string
-  rating: number
+  deliverTime: string | null
+  pricing: string | null
+  rating: number | null
 }
 
 type FilterModalProps = {
@@ -21,14 +21,27 @@ const PRICES = ['$', '$$', '$$$']
 
 const FilterModal = ({ visible, onClose, onApply }: FilterModalProps) => {
   const [offers, setOffers] = useState<string[]>([])
-  const [deliverTime, setDeliverTime] = useState('10-15 min')
-  const [pricing, setPricing] = useState('$$')
-  const [rating, setRating] = useState(4)
+  const [deliverTime, setDeliverTime] = useState<string | null>(null)
+  const [pricing, setPricing] = useState<string | null>(null)
+  const [rating, setRating] = useState<number | null>(null)
 
   const toggleOffer = (offer: string) => {
     setOffers((current) =>
       current.includes(offer) ? current.filter((item) => item !== offer) : [...current, offer]
     )
+  }
+
+  // Tocar de novo na opção já selecionada desmarca
+  const toggleDeliverTime = (time: string) => {
+    setDeliverTime((current) => (current === time ? null : time))
+  }
+
+  const togglePricing = (price: string) => {
+    setPricing((current) => (current === price ? null : price))
+  }
+
+  const toggleRating = (star: number) => {
+    setRating((current) => (current === star ? null : star))
   }
 
   return (
@@ -66,7 +79,7 @@ const FilterModal = ({ visible, onClose, onApply }: FilterModalProps) => {
                 <TouchableOpacity
                   key={time}
                   style={[styles.chip, selected && styles.chipSelected]}
-                  onPress={() => setDeliverTime(time)}
+                  onPress={() => toggleDeliverTime(time)}
                 >
                   <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{time}</Text>
                 </TouchableOpacity>
@@ -82,7 +95,7 @@ const FilterModal = ({ visible, onClose, onApply }: FilterModalProps) => {
                 <TouchableOpacity
                   key={price}
                   style={[styles.roundChip, selected && styles.chipSelected]}
-                  onPress={() => setPricing(price)}
+                  onPress={() => togglePricing(price)}
                 >
                   <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{price}</Text>
                 </TouchableOpacity>
@@ -93,11 +106,11 @@ const FilterModal = ({ visible, onClose, onApply }: FilterModalProps) => {
           <Text style={styles.label}>RATING</Text>
           <View style={styles.chipsWrap}>
             {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity key={star} style={styles.roundChip} onPress={() => setRating(star)}>
+              <TouchableOpacity key={star} style={styles.roundChip} onPress={() => toggleRating(star)}>
                 <MaterialIcons
                   name="star"
                   size={22}
-                  color={star <= rating ? '#FF7622' : '#CACCD3'}
+                  color={star <= (rating ?? 0) ? '#FF7622' : '#CACCD3'}
                 />
               </TouchableOpacity>
             ))}
