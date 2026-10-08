@@ -2,39 +2,10 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Activi
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
-import { useStripe } from '@stripe/stripe-react-native'
+import { CardField, useStripe } from '@stripe/stripe-react-native'
 import Feather from '@expo/vector-icons/Feather'
 import { useCart } from '../../context/CartContext'
 import { postJson } from '../../lib/api'
-
-const detectBrand = (digits: string) => {
-  if (/^4/.test(digits)) return 'visa'
-  if (/^(5[1-5]|2(2[2-9][1-9]|2[3-9]\d|[3-6]\d\d|7[01]\d|720))/.test(digits)) return 'mastercard'
-  return ''
-}
-
-const formatNumber = (value: string) =>
-  value
-    .replace(/\D/g, '')
-    .slice(0, 16)
-    .replace(/(.{4})/g, '$1 ')
-    .trim()
-
-const formatExpiry = (value: string) => {
-  const digits = value.replace(/\D/g, '').slice(0, 6)
-  if (digits.length <= 2) return digits
-  return `${digits.slice(0, 2)}/${digits.slice(2)}`
-}
-
-const isExpiryValid = (value: string) => {
-  const match = value.match(/^(\d{2})\/(\d{4})$/)
-  if (!match) return false
-  const month = Number(match[1])
-  const year = Number(match[2])
-  if (month < 1 || month > 12) return false
-  const now = new Date()
-  return year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth() + 1)
-}
 
 const AddCard = () => {
   const router = useRouter()
@@ -44,26 +15,23 @@ const AddCard = () => {
   const { total, clear } = useCart()
 
   const [holder, setHolder] = useState('')
-  const [number, setNumber] = useState('')
-  const [expiry, setExpiry] = useState('')
-  const [cvc, setCvc] = useState('')
+  const [cardComplete, setCardComplete] = useState(false)
+  const [cardBrand, setCardBrand] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const brandLabel = brand === 'visa' ? 'Visa' : brand === 'mastercard' ? 'Mastercard' : 'card'
-  const digits = number.replace(/\D/g, '')
-  const canSubmit =
-    holder.trim().length > 1 &&
-    digits.length >= 15 &&
-    isExpiryValid(expiry) &&
-    cvc.length >= 3 &&
-    !loading &&
-    total > 0
+  const canSubmit = holder.trim().length > 1 && cardComplete && !loading && total > 0
 
   const handlePay = async () => {
-    const detected = detectBrand(digits)
+    const detected = cardBrand.toLowerCase()
 
-    if ((brand === 'visa' || brand === 'mastercard') && detected && detected !== brand) {
+    if (
+      (brand === 'visa' || brand === 'mastercard') &&
+      detected &&
+      detected !== 'unknown' &&
+      detected !== brand
+    ) {
       setError(`This is not a ${brandLabel} card`)
       return
     }
@@ -131,52 +99,23 @@ const AddCard = () => {
         />
 
         <Text style={styles.label}>CARD NUMBER</Text>
-        <TextInput
-          style={styles.input}
-          value={number}
-          onChangeText={(text) => {
-            setNumber(formatNumber(text))
-            setError('')
-          }}
-          placeholder="---- ---- ---- ----"
-          placeholderTextColor="#A0A5BA"
-          keyboardType="number-pad"
-          maxLength={19}
-        />
-
-        <View style={styles.row}>
-          <View style={styles.column}>
-            <Text style={styles.label}>EXPIRE DATE</Text>
-            <TextInput
-              style={styles.input}
-              value={expiry}
-              onChangeText={(text) => {
-                setExpiry(formatExpiry(text))
-                setError('')
-              }}
-              placeholder="mm/yyyy"
-              placeholderTextColor="#A0A5BA"
-              keyboardType="number-pad"
-              maxLength={7}
-            />
-          </View>
-
-          <View style={styles.column}>
-            <Text style={styles.label}>CVC</Text>
-            <TextInput
-              style={styles.input}
-              value={cvc}
-              onChangeText={(text) => {
-                setCvc(text.replace(/\D/g, '').slice(0, 4))
-                setError('')
-              }}
-              placeholder="***"
-              placeholderTextColor="#A0A5BA"
-              keyboardType="number-pad"
-              secureTextEntry
-              maxLength={4}
-            />
-          </View>
+        <View style={styles.cardBox}>
+          <CardField
+            postalCodeEnabled={false}
+            placeholders={{ number: '---- ---- ---- ----', expiration: 'mm/yy', cvc: '***' }}
+            cardStyle={{
+              backgroundColor: '#F0F5FA',
+              textColor: '#181C2E',
+              placeholderColor: '#A0A5BA',
+              fontSize: 16
+            }}
+            style={styles.cardField}
+            onCardChange={(details) => {
+              setCardComplete(details.complete)
+              setCardBrand(details.brand ?? '')
+              setError('')
+            }}
+          />
         </View>
       </ScrollView>
 
@@ -242,12 +181,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#181C2E'
   },
-  row: {
-    flexDirection: 'row',
-    gap: 27
+  cardBox: {
+    height: 62,
+    borderRadius: 10,
+    backgroundColor: '#F0F5FA',
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    overflow: 'hidden'
   },
-  column: {
-    flex: 1
+  cardField: {
+    width: '100%',
+    height: 50
   },
   footer: {
     paddingHorizontal: 24,

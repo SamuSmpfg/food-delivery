@@ -1,16 +1,23 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
-import {useState} from 'react'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons'
 import Feather from '@expo/vector-icons/Feather';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useUser } from '@clerk/clerk-expo';
+import { useAccountAddress } from '../../../hooks/useAccountAddress';
 
 
 const PersonalInfo = () => {
 
     const router = useRouter();
-    const [text, setText] = useState('');
+    const { user } = useUser();
+    const { address, loading } = useAccountAddress();
+
+    const firstName = user?.firstName ?? '';
+    const email = user?.primaryEmailAddress?.emailAddress ?? '';
+    const phoneNumber = (user?.unsafeMetadata?.phoneNumber as string) ?? '';
+    const bio = (user?.unsafeMetadata?.bio as string) ?? '';
 
   return (
     <ScrollView style={styles.scrollViewContainer}>
@@ -37,37 +44,27 @@ const PersonalInfo = () => {
             </View>
 
             <View style={styles.userContainer}>
-                            <View style={styles.avatar} />
-            
-                            <View style={styles.userInfo}>
-                            <Text style={styles.userName}>User Testing</Text>
-                            <Text style={styles.description}>I Love Fast Food</Text>
-                            </View>
-                        </View>
+                {user?.hasImage ? (
+                    <Image source={{ uri: user.imageUrl }} style={styles.avatar} />
+                ) : (
+                    <View style={styles.avatar} />
+                )}
 
-                                    <View style={styles.personalInfoContainer}>
+                <View style={styles.userInfo}>
+                    <Text style={styles.userName}>{firstName}</Text>
+                    <Text style={styles.description}>{bio || 'No bio yet'}</Text>
+                </View>
+            </View>
+
+            <View style={styles.personalInfoContainer}>
                 <View>
                     <View style={styles.infosTouchableOpacity}>
                         <View style={styles.icons}>
                             <Feather name="user" size={24} color="#FB6F3D" />
                         </View>
                         <View style={styles.infoContainer}>
-                        <Text style={styles.iconsLabels}>FULL NAME</Text>
-                        <Text style={styles.description}>Vishal Khadok</Text>
-                        </View>
-                        <View style={styles.detailsArrow}>
-                        </View>
-                    </View>
-                </View>
-
-                 <View>
-                    <View style={styles.infosTouchableOpacity}>
-                        <View style={styles.icons}>
-                           <MaterialCommunityIcons name="email-outline" size={24} color="#413DFB" />
-                        </View>
-                        <View style={styles.infoContainer}>
-                        <Text style={styles.iconsLabels}>EMAIL</Text>
-                        <Text style={styles.description}>vishalkhadok@example.com</Text>
+                            <Text style={styles.iconsLabels}>FIRST NAME</Text>
+                            <Text style={styles.description}>{firstName}</Text>
                         </View>
                         <View style={styles.detailsArrow}>
                         </View>
@@ -77,15 +74,31 @@ const PersonalInfo = () => {
                 <View>
                     <View style={styles.infosTouchableOpacity}>
                         <View style={styles.icons}>
-                           <Feather name="phone" size={24} color="#369BFF" />
+                            <MaterialCommunityIcons name="email-outline" size={24} color="#413DFB" />
                         </View>
                         <View style={styles.infoContainer}>
-                            <Text style={styles.iconsLabels}>PHONE NUMBER</Text>
-                            <Text style={styles.description}>+1 (555) 123-4567</Text>
+                            <Text style={styles.iconsLabels}>EMAIL</Text>
+                            <Text style={styles.description}>{email}</Text>
                         </View>
                         <View style={styles.detailsArrow}>
                         </View>
                     </View>
+                </View>
+
+                <View>
+                    <View style={styles.infosTouchableOpacity}>
+                        <View style={styles.icons}>
+                            <Feather name="phone" size={24} color="#369BFF" />
+                        </View>
+                        <View style={styles.infoContainer}>
+                            <Text style={styles.iconsLabels}>PHONE NUMBER</Text>
+                            <Text style={styles.description}>{phoneNumber || 'No phone saved'}</Text>
+                        </View>
+                        <View style={styles.detailsArrow}>
+                        </View>
+                    </View>
+                </View>
+                <View>
                 </View>
             </View>
       </SafeAreaView>
@@ -126,7 +139,7 @@ const styles = StyleSheet.create({
         height: 45,
         borderRadius: 100,
     },
-        editTouchableOpacity: {
+    editTouchableOpacity: {
         marginLeft: 'auto',
     },
     editTouchableOpacityText: {
@@ -137,7 +150,7 @@ const styles = StyleSheet.create({
         marginLeft: 'auto',
         textDecorationLine: 'underline'
     },
-        userContainer: {
+    userContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         marginTop: 24,
@@ -153,6 +166,7 @@ const styles = StyleSheet.create({
     userInfo: {
         flexDirection: 'column',
         marginLeft: 16,
+        flex: 1,
     },
     userName: {
         fontFamily: 'Sen_700Bold',
@@ -199,6 +213,7 @@ const styles = StyleSheet.create({
     },
     infoContainer: {
         flexDirection: 'column',
+        flex: 1,
     }
 })
 

@@ -11,6 +11,14 @@ export type CartItem = {
   quantity: number
 }
 
+export type Order = {
+  id: string
+  items: CartItem[]
+  total: number
+  address: string
+  placedAt: number
+}
+
 type AddPayload = {
   id: string
   name: string
@@ -25,11 +33,13 @@ type CartContextValue = {
   count: number
   total: number
   address: string
+  order: Order | null
   setAddress: (value: string) => void
   addItem: (payload: AddPayload) => void
   changeQuantity: (key: string, delta: number) => void
   removeItem: (key: string) => void
   clear: () => void
+  placeOrder: () => void
 }
 
 const CartContext = createContext<CartContextValue | null>(null)
@@ -42,6 +52,7 @@ const formatAddress = (place: Location.LocationGeocodedAddress) => {
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([])
   const [address, setAddress] = useState('')
+  const [order, setOrder] = useState<Order | null>(null)
 
   useEffect(() => {
     let active = true
@@ -107,9 +118,33 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     [items]
   )
 
+  const placeOrder = () => {
+    if (items.length === 0) return
+    setOrder({
+      id: String(Date.now()),
+      items: items.map((item) => ({ ...item })),
+      total,
+      address,
+      placedAt: Date.now(),
+    })
+    setItems([])
+  }
+
   const value = useMemo(
-    () => ({ items, count, total, address, setAddress, addItem, changeQuantity, removeItem, clear }),
-    [items, count, total, address]
+    () => ({
+      items,
+      count,
+      total,
+      address,
+      order,
+      setAddress,
+      addItem,
+      changeQuantity,
+      removeItem,
+      clear,
+      placeOrder,
+    }),
+    [items, count, total, address, order]
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

@@ -1,16 +1,66 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput } from 'react-native'
-import React from 'react'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform } from 'react-native'
+import { useEffect, useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons'
 import Feather from '@expo/vector-icons/Feather';
+import { useUser } from '@clerk/clerk-expo';
+import { useProfileImagePicker } from '../../../hooks/useProfileImagePicker';
 
 const EditProfile = () => {
 
     const router = useRouter();
+    const { user } = useUser();
+    const { pickImage, uploading } = useProfileImagePicker();
+
+    const [firstName, setFirstName] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [bio, setBio] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const email = user?.primaryEmailAddress?.emailAddress ?? '';
+
+    // Preenche os campos quando o usuário carregar
+    useEffect(() => {
+        if (!user) return;
+        setFirstName(user.firstName ?? '');
+        setPhoneNumber((user.unsafeMetadata?.phoneNumber as string) ?? '');
+        setBio((user.unsafeMetadata?.bio as string) ?? '');
+    }, [user?.id]);
+
+    const handleSave = async () => {
+        if (!user || saving) return;
+
+        if (!firstName.trim()) {
+            Alert.alert('Warning', 'The name can not be empty.');
+            return;
+        }
+
+        try {
+            setSaving(true);
+            await user.update({
+                firstName: firstName.trim(),
+                unsafeMetadata: {
+                    ...user.unsafeMetadata,
+                    phoneNumber: phoneNumber.trim(),
+                    bio: bio.trim(),
+                },
+            });
+            router.back();
+        } catch (err) {
+            console.error(err);
+            Alert.alert('Error', 'Could not save, try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
   return (
-       <ScrollView style={styles.scrollViewContainer}>
+        <KeyboardAvoidingView
+        style={styles.scrollViewContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+    <ScrollView >
       <SafeAreaView>
         <View style={styles.headerContainer}>
                 <TouchableOpacity 
@@ -26,19 +76,37 @@ const EditProfile = () => {
             </View>
 
             <View style={styles.avatarContainer}>
-                <View style={styles.avatar}/>
-                <TouchableOpacity style={styles.editTouchableOpacity}>
-                    <Feather name="edit-2" size={24} color="white" />
-                </TouchableOpacity>
+                <View>
+                    {user?.hasImage ? (
+                        <Image source={{ uri: user.imageUrl }} style={styles.avatar} />
+                    ) : (
+                        <View style={styles.avatar} />
+                    )}
+
+                    {uploading && (
+                        <View style={styles.avatarLoading}>
+                            <ActivityIndicator color="#FFFFFF" />
+                        </View>
+                    )}
+
+                    <TouchableOpacity
+                        style={styles.editTouchableOpacity}
+                        onPress={pickImage}
+                        disabled={uploading}
+                    >
+                        <Feather name="edit-2" size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View style={styles.textInputContainer}>
-                <Text style={styles.textInputLabel}>FULL NAME</Text>
+                <Text style={styles.textInputLabel}>FIRST NAME</Text>
                 <TextInput
                 style={styles.input}
-                placeholder="Enter your full name"
+                placeholder="Enter your first name"
                 placeholderTextColor="#6B6E82"
-                editable
+                value={firstName}
+                onChangeText={setFirstName}
                 inputMode="text"
                 />
             </View>
@@ -46,10 +114,9 @@ const EditProfile = () => {
             <View style={styles.textInputContainer}>
                 <Text style={styles.textInputLabel}>EMAIL</Text>
                 <TextInput
-                style={styles.input}
-                placeholder="example@gmail.com"
-                placeholderTextColor="#6B6E82"
-                editable
+                style={[styles.input, styles.inputDisabled]}
+                value={email}
+                editable={false}
                 inputMode="email"
                 />
             </View>
@@ -58,9 +125,10 @@ const EditProfile = () => {
                 <Text style={styles.textInputLabel}>PHONE NUMBER</Text>
                 <TextInput
                 style={styles.input}
-                placeholder="123-456-7890"
+                placeholder="Enter your phone number"
                 placeholderTextColor="#6B6E82"
-                editable
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
                 inputMode="tel"
                 />
             </View>
@@ -71,17 +139,29 @@ const EditProfile = () => {
                     style={styles.bioTextInput}
                     placeholder="I love fast food"
                     placeholderTextColor="#6B6E82"
-                    editable
+                    value={bio}
+                    onChangeText={setBio}
                     inputMode="text"
+                    multiline
+                    textAlignVertical="top"
                 />
             </View>
 
-            <TouchableOpacity style={styles.saveTouchableOpacity}>
-                <Text style={styles.saveTouchableOpacityText}>SAVE</Text>
+            <TouchableOpacity
+                style={[styles.saveTouchableOpacity, saving && { opacity: 0.7 }]}
+                onPress={handleSave}
+                disabled={saving}
+            >
+                {saving ? (
+                    <ActivityIndicator color="#FFFFFF" style={{ padding: 24 }} />
+                ) : (
+                    <Text style={styles.saveTouchableOpacityText}>SAVE</Text>
+                )}
             </TouchableOpacity>
 
       </SafeAreaView>
     </ScrollView>
+        </KeyboardAvoidingView>
   )
 }
 
@@ -131,6 +211,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    avatarLoading: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 100,
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     editTouchableOpacity: {
         backgroundColor: '#FF7622',
         width: 45,
@@ -139,8 +230,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         position: 'absolute',
-        bottom: 5,
-        right: 95,
+        bottom: 0,
+        right: 0,
     },
     textInputContainer: {
         width: 'auto',
@@ -173,6 +264,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#32343E',
         alignItems: 'flex-start',
+        justifyContent: 'flex-start'
     },
     saveTouchableOpacity: {
         width: 'auto',
@@ -187,6 +279,9 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         alignItems: 'center',
         padding: 24,
+    },
+    inputDisabled: {
+        opacity: 0.6,
     }
 })
 

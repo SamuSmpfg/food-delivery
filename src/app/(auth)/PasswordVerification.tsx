@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSignUp } from '@clerk/clerk-expo';
 
 const CODE_LENGTH = 6;
-const RESEND_SECONDS = 30;
+const RESEND_SECONDS = 50;
 
 const PasswordVerification = () => {
   const { signUp, setActive, isLoaded } = useSignUp();
@@ -138,7 +138,18 @@ const PasswordVerification = () => {
         contentContainerStyle={styles.logInSpaceContent}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.headerCodeSessionContainer}>
         <Text style={styles.inputLabel}>CODE</Text>
+        <TouchableOpacity
+          onPress={onResendPress}
+          disabled={loading || cooldown > 0}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.resendText, cooldown > 0 && styles.resendTextDisabled]}>
+            {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+          </Text>
+        </TouchableOpacity>
+        </View>
         <View style={styles.inputWrapper}>
           {code.map((digit, index) => (
             <TextInput
@@ -169,16 +180,6 @@ const PasswordVerification = () => {
           ) : (
             <Text style={styles.verificationCodeTouchableOpacityText}>VERIFY</Text>
           )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={onResendPress}
-          disabled={loading || cooldown > 0}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.resendText, cooldown > 0 && styles.resendTextDisabled]}>
-            {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
-          </Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -232,6 +233,10 @@ const styles = StyleSheet.create({
     fontFamily: "Sen_400Regular",
     color: '#32343E',
   },
+  headerCodeSessionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
   input: {
     backgroundColor: "#F0F5FA",
     width: 48,
@@ -270,11 +275,9 @@ const styles = StyleSheet.create({
     fontFamily: "Sen_400Regular",
     color: '#FF7622',
     fontSize: 14,
-    textAlign: 'center',
-    marginTop: 24
   },
   resendTextDisabled: {
-    color: '#A0A5BA'
+    color: '#32343E'
   },
     raysGray: {
       position: "absolute",

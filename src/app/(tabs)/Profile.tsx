@@ -1,17 +1,21 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
-import {useState} from 'react'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
 import Feather from '@expo/vector-icons/Feather';
 import Entypo from '@expo/vector-icons/Entypo';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { useRouter } from 'expo-router';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 const Profile = () => {
 
     const router = useRouter();
-    const [text, setText] = useState('');
-    
+    const { signOut } = useAuth();
+    const { user } = useUser();
+
+    const firstName = user?.firstName ?? '';
+    const email = user?.primaryEmailAddress?.emailAddress ?? '';
 
   return (
     <ScrollView style={styles.scrollViewContainer}>
@@ -37,11 +41,15 @@ const Profile = () => {
             </View>
 
             <View style={styles.userContainer}>
-                <View style={styles.avatar} />
+                {user?.hasImage ? (
+                    <Image source={{ uri: user.imageUrl }} style={styles.avatar} />
+                ) : (
+                    <View style={styles.avatar} />
+                )}
 
                 <View style={styles.userInfo}>
-                <Text style={styles.userName}>{text}</Text>
-                <Text style={styles.description}>{text}</Text>
+                <Text style={styles.userName}>{firstName}</Text>
+                <Text style={styles.description}>{email}</Text>
                 </View>
             </View>
 
@@ -91,6 +99,20 @@ const Profile = () => {
                             <Entypo name="heart-outlined" size={24} color="#B33DFB" />
                         </View>
                         <Text style={styles.iconsLabels}>Favourite</Text>
+                        <View style={styles.detailsArrow}>
+                            <MaterialIcons name="keyboard-arrow-right" size={24} color="#747783" />
+                        </View>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                onPress={() => router.push('/(tabs)/MyOrders')}
+                >
+                    <View style={styles.infosTouchableOpacity}>
+                        <View style={styles.icons}>
+                            <MaterialCommunityIcons name="food-outline" size={24} color="#413DFB" />
+                        </View>
+                        <Text style={styles.iconsLabels}>My Orders</Text>
                         <View style={styles.detailsArrow}>
                             <MaterialIcons name="keyboard-arrow-right" size={24} color="#747783" />
                         </View>
@@ -163,7 +185,9 @@ const Profile = () => {
 
 
                     <View style={styles.personalInfoContainer}>
-                <TouchableOpacity>
+                <TouchableOpacity
+                onPress={() => signOut()}
+                >
                     <View style={styles.infosTouchableOpacity}>
                         <View style={styles.icons}>
                             <Feather name="log-out" size={24} color="#FB4A59" />

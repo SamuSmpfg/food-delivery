@@ -1,3 +1,5 @@
+/// <reference types="react-native" />
+
 import { Redirect } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Image, StyleSheet } from "react-native";

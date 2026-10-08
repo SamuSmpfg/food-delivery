@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import Feather from '@expo/vector-icons/Feather'
+import useBackHandler from '../../../hooks/useBackHandler'
 
 const PaymentSuccess = () => {
   const router = useRouter()
@@ -9,6 +10,8 @@ const PaymentSuccess = () => {
   const { method, total } = useLocalSearchParams<{ method: string; total: string }>()
 
   const isCash = method === 'Cash'
+
+  useBackHandler(() => {})
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
@@ -26,9 +29,14 @@ const PaymentSuccess = () => {
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => router.replace('/(tabs)/HomeScreen')}
+        onPress={() =>
+          router.replace({
+            pathname: '/(tabs)/TrackingOrder',
+            params: { from: 'payment' }
+          })
+        }
       >
-        <Text style={styles.buttonText}>BACK TO HOME</Text>
+        <Text style={styles.buttonText}>TRACK ORDER</Text>
       </TouchableOpacity>
     </View>
   )

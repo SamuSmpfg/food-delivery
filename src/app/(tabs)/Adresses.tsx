@@ -2,8 +2,9 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'rea
 import React from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Address, AddressLabel, removeAddress, useAddresses } from '../../lib/addressStore'
+import { setSelectedAddressId, useSelectedAddressId } from '../../lib/selectedAddressStore'
 
 const ICONS: Record<AddressLabel, { name: keyof typeof MaterialIcons.glyphMap; color: string }> = {
   Home: { name: 'home', color: '#4A90C2' },
@@ -15,6 +16,14 @@ const Adresses = () => {
 
   const router = useRouter();
   const addresses = useAddresses();
+  const { select } = useLocalSearchParams<{ select?: string }>();
+  const selectMode = select === 'true';
+  const selectedAddressId = useSelectedAddressId();
+
+  const handleSelect = (item: Address) => {
+    setSelectedAddressId(item.id)
+    router.back()
+  }
 
   const confirmDelete = (item: Address) => {
     Alert.alert('Excluir endereço', `Deseja excluir o endereço "${item.label}"?`, [
@@ -48,7 +57,15 @@ const Adresses = () => {
               const icon = ICONS[item.label]
               const complement = item.apartment ? ` - Apt ${item.apartment}` : ''
               return (
-                <View key={item.id} style={styles.card}>
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={selectMode ? 0.7 : 1}
+                  onPress={selectMode ? () => handleSelect(item) : undefined}
+                  style={[
+                    styles.card,
+                    selectMode && item.id === selectedAddressId && styles.cardSelected,
+                  ]}
+                >
                   <View style={styles.cardIconContainer}>
                     <MaterialIcons name={icon.name} size={26} color={icon.color} />
                   </View>
@@ -74,7 +91,7 @@ const Adresses = () => {
                       <MaterialIcons name="delete-outline" size={22} color="#FF7622" />
                     </TouchableOpacity>
                   </View>
-                </View>
+                </TouchableOpacity>
               )
             })
           )}
@@ -152,6 +169,10 @@ const styles =  StyleSheet.create({
     backgroundColor: '#F0F5FA',
     borderRadius: 16,
     padding: 14,
+  },
+  cardSelected: {
+    borderWidth: 2,
+    borderColor: '#FF7622',
   },
   cardIconContainer: {
     width: 48,

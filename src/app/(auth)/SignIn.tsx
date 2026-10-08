@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Animated } from 'react-native'
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Animated, KeyboardAvoidingView, Platform } from 'react-native'
 import { useState, useRef, useEffect } from 'react'
 import { Checkbox } from 'expo-checkbox';
 import { useRouter } from 'expo-router';
@@ -82,140 +82,147 @@ const SignIn = () => {
   };
 
   return (
-    <View style={styles.mainContainer}>
-      <View style={styles.headerContainer}>
-        <Animated.Image
-          source={require("../../../assets/images/login-gray-rays.png")}
-          resizeMode="contain"
-          style={[styles.raysGray, { opacity: grayOpacity, transform: [{ scale: grayScale }] }]}
-        />
-        <Animated.Image
-          source={require("../../../assets/images/dashed-gray.png")}
-          resizeMode="contain"
-          style={[styles.dashedGray, { opacity: dashedOpacity, transform: [{ scale: dashedScale }] }]}
-        />
-        <Text style={styles.mainContainerTitle}>LOG IN</Text>
-        <Text style={styles.mainContainerText}>Please sign in to your existing account</Text>
-      </View>
-
-      <ScrollView
-        style={styles.logInSpace}
-        contentContainerStyle={styles.logInSpaceContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputLabel}>EMAIL</Text>
-          <TextInput
-            style={[styles.input, emailMissing && styles.inputError]}
-            placeholder="example@gmail.com"
-            placeholderTextColor="#A0A5BA"
-            value={emailAddress}
-            onChangeText={setEmailAddress}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            textContentType="emailAddress"
+    <KeyboardAvoidingView
+      style={styles.mainContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
+      <View style={styles.content}>
+        <View style={styles.headerContainer}>
+          <Animated.Image
+            source={require("../../../assets/images/login-gray-rays.png")}
+            resizeMode="contain"
+            style={[styles.raysGray, { opacity: grayOpacity, transform: [{ scale: grayScale }] }]}
           />
+          <Animated.Image
+            source={require("../../../assets/images/dashed-gray.png")}
+            resizeMode="contain"
+            style={[styles.dashedGray, { opacity: dashedOpacity, transform: [{ scale: dashedScale }] }]}
+          />
+          <Text style={styles.mainContainerTitle}>LOG IN</Text>
+          <Text style={styles.mainContainerText}>Please sign in to your existing account</Text>
         </View>
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputLabel}>PASSWORD</Text>
-          <View style={styles.inputInPass}>
+
+        <ScrollView
+          style={styles.logInSpace}
+          contentContainerStyle={styles.logInSpaceContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.inputWrapper}>
+            <Text style={styles.inputLabel}>EMAIL</Text>
             <TextInput
-              style={[styles.input, styles.inputPassword, passwordMissing && styles.inputError]}
-              placeholder="* * * * * * * * * * "
+              style={[styles.input, emailMissing && styles.inputError]}
+              placeholder="example@gmail.com"
               placeholderTextColor="#A0A5BA"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
+              value={emailAddress}
+              onChangeText={setEmailAddress}
               autoCapitalize="none"
               autoCorrect={false}
-              textContentType="password"
+              keyboardType="email-address"
+              textContentType="emailAddress"
+            />
+          </View>
+          <View style={styles.inputWrapper}>
+            <Text style={styles.inputLabel}>PASSWORD</Text>
+            <View style={styles.inputInPass}>
+              <TextInput
+                style={[styles.input, styles.inputPassword, passwordMissing && styles.inputError]}
+                placeholder="* * * * * * * * * * "
+                placeholderTextColor="#A0A5BA"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="password"
+              />
+              <TouchableOpacity
+                style={styles.eye}
+                onPress={() => setShowPassword(!showPassword)}
+                activeOpacity={0.6}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="#B4B9CA"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <View style={styles.checkboxWrapper}>
+            <Checkbox
+              value={isChecked}
+              onValueChange={setChecked}
+              color={isChecked ? '#FF7622' : undefined}
             />
             <TouchableOpacity
-              style={styles.eye}
-              onPress={() => setShowPassword(!showPassword)}
-              activeOpacity={0.6}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityRole="button"
-              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            onPress={() => setChecked(!isChecked)}
             >
-              <Ionicons
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={20}
-                color="#B4B9CA"
-              />
+            <Text style={styles.checkboxlabel}>Remember me</Text>
+            </TouchableOpacity>
+            <TouchableOpacity>
+              <Text
+                style={styles.textForgotPassword}
+                onPress={() => router.navigate('/(auth)/ForgotPassword')}
+              >
+                Forgot Password
+              </Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        <View style={styles.checkboxWrapper}>
-          <Checkbox
-            value={isChecked}
-            onValueChange={setChecked}
-            color={isChecked ? '#FF7622' : undefined}
-          />
           <TouchableOpacity
-          onPress={() => setChecked(!isChecked)}
+            style={[styles.loginTouchableOpacity, loading && styles.loginDisabled]}
+            onPress={onSignInPress}
+            disabled={loading || !isLoaded}
+            activeOpacity={0.8}
           >
-          <Text style={styles.checkboxlabel}>Remember me</Text>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.loginTouchableOpacityText}>LOG IN</Text>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity>
-            <Text
-              style={styles.textForgotPassword}
-              onPress={() => router.navigate('/(auth)/ForgotPassword')}
-            >
-              Forgot Password
-            </Text>
-          </TouchableOpacity>
-        </View>
 
-        <TouchableOpacity
-          style={[styles.loginTouchableOpacity, loading && styles.loginDisabled]}
-          onPress={onSignInPress}
-          disabled={loading || !isLoaded}
-          activeOpacity={0.8}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.loginTouchableOpacityText}>LOG IN</Text>
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.signUpQuestion}>
-          <Text style={styles.simpleTexts}>Don’t have an account?</Text>
-          <TouchableOpacity>
-            <Text style={styles.signUpTouchableOpacity} onPress={() => router.navigate('/(auth)/SignUp')}>SIGN UP</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.otherSignUpMethods}>
-          <Text style={styles.simpleTexts}>Or</Text>
-          <View style={styles.socialRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[styles.socialCircle, styles.socialFacebook]}
-            >
-              <FontAwesome5 name="facebook-f" size={26} color="#FFFFFF" brand />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[styles.socialCircle, styles.socialTwitter]}
-            >
-              <FontAwesome5 name="twitter" size={26} color="#FFFFFF" brand />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[styles.socialCircle, styles.socialApple]}
-            >
-              <FontAwesome5 name="apple" size={28} color="#FFFFFF" brand />
+          <View style={styles.signUpQuestion}>
+            <Text style={styles.simpleTexts}>Don’t have an account?</Text>
+            <TouchableOpacity>
+              <Text style={styles.signUpTouchableOpacity} onPress={() => router.navigate('/(auth)/SignUp')}>SIGN UP</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </ScrollView>
-    </View>
+
+          <View style={styles.otherSignUpMethods}>
+            <Text style={styles.simpleTexts}>Or</Text>
+            <View style={styles.socialRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[styles.socialCircle, styles.socialFacebook]}
+              >
+                <FontAwesome5 name="facebook-f" size={26} color="#FFFFFF" brand />
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[styles.socialCircle, styles.socialTwitter]}
+              >
+                <FontAwesome5 name="twitter" size={26} color="#FFFFFF" brand />
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[styles.socialCircle, styles.socialApple]}
+              >
+                <FontAwesome5 name="apple" size={28} color="#FFFFFF" brand />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -223,6 +230,9 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: '#121223',
+  },
+  content: {
+    flex: 1,
   },
   mainContainerTitle: {
     fontFamily: "Sen_700Bold",

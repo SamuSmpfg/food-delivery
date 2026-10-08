@@ -36,13 +36,14 @@
       "expo-secure-store",
       "expo-font",
       [
-  "@stripe/stripe-react-native",
-  {
-    "merchantIdentifier": "merchant.com.dfood",
-    "enableGooglePay": false
-  }
-],
-      "expo-web-browser"
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.dfood",
+          "enableGooglePay": false
+        }
+      ],
+      "expo-web-browser",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

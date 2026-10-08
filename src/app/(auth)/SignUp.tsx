@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Animated } from 'react-native'
-import React, { useState, useRef, useEffect } from 'react'
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Animated, KeyboardAvoidingView, Platform } from 'react-native'
+import  { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'expo-router';
 import { useSignUp, useAuth } from '@clerk/clerk-expo';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -83,127 +83,134 @@ const SignUp = () => {
   };
 
   return (
-    <View style={styles.mainContainer}>
-      <View style={styles.headerContainer}>
-        <Animated.Image
-          source={require("../../../assets/images/login-gray-rays.png")}
-          resizeMode="contain"
-          style={[styles.raysGray, { opacity: grayOpacity, transform: [{ scale: grayScale }] }]}
-        />
-        <Animated.Image
-          source={require("../../../assets/images/dashed-gray.png")}
-          resizeMode="contain"
-          style={[styles.dashedGray, { opacity: dashedOpacity, transform: [{ scale: dashedScale }] }]}
-        />
-        <Text style={styles.mainContainerTitle}>Sign Up</Text>
-        <Text style={styles.mainContainerText}>Please sign up to get started</Text>
-      </View>
-
-      <ScrollView
-        style={styles.logInSpace}
-        contentContainerStyle={styles.logInSpaceContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputLabel}>NAME</Text>
-          <TextInput
-            style={[styles.input, nameMissing && styles.inputError]}
-            placeholder="John Doe"
-            placeholderTextColor="#A0A5BA"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-            textContentType="name"
+    <KeyboardAvoidingView
+      style={styles.mainContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
+      <View style={styles.content}>
+        <View style={styles.headerContainer}>
+          <Animated.Image
+            source={require("../../../assets/images/login-gray-rays.png")}
+            resizeMode="contain"
+            style={[styles.raysGray, { opacity: grayOpacity, transform: [{ scale: grayScale }] }]}
           />
-
-          <Text style={styles.inputLabel}>EMAIL</Text>
-          <TextInput
-            style={[styles.input, emailMissing && styles.inputError]}
-            placeholder="example@gmail.com"
-            placeholderTextColor="#A0A5BA"
-            value={emailAddress}
-            onChangeText={setEmailAddress}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            textContentType="emailAddress"
+          <Animated.Image
+            source={require("../../../assets/images/dashed-gray.png")}
+            resizeMode="contain"
+            style={[styles.dashedGray, { opacity: dashedOpacity, transform: [{ scale: dashedScale }] }]}
           />
-
-          <Text style={styles.inputLabel}>PASSWORD</Text>
-          <View style={styles.inputInPass}>
-            <TextInput
-              style={[styles.input, styles.inputPassword, passwordMissing && styles.inputError]}
-              placeholder="* * * * * * * * * * "
-              placeholderTextColor="#A0A5BA"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              textContentType="password"
-            />
-            <TouchableOpacity
-              style={styles.eye}
-              onPress={() => setShowPassword(!showPassword)}
-              activeOpacity={0.6}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityRole="button"
-              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-            >
-              <Ionicons
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={20}
-                color="#B4B9CA"
-              />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.inputLabel}>RE-TYPE PASSWORD</Text>
-          <View style={styles.inputInPass}>
-            <TextInput
-              style={[styles.input, styles.inputPassword, confirmMissing && styles.inputError]}
-              placeholder=" * * * * * * * * * *"
-              placeholderTextColor="#A0A5BA"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              textContentType="newPassword"
-            />
-            <TouchableOpacity
-              style={styles.eye}
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              activeOpacity={0.6}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityRole="button"
-              accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
-            >
-              <Ionicons
-                name={showConfirmPassword ? 'eye-off' : 'eye'}
-                size={20}
-                color="#B4B9CA"
-              />
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.mainContainerTitle}>Sign Up</Text>
+          <Text style={styles.mainContainerText}>Please sign up to get started</Text>
         </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        <TouchableOpacity
-          style={[styles.sendCodeTouchableOpacity, loading && styles.sendCodeDisabled]}
-          onPress={onSignUpPress}
-          disabled={loading || !isLoaded}
-          activeOpacity={0.8}
+        <ScrollView
+          style={styles.logInSpace}
+          contentContainerStyle={styles.logInSpaceContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.sendCodeTouchableOpacityText}>SIGN UP</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
+          <View style={styles.inputWrapper}>
+            <Text style={styles.inputLabel}>NAME</Text>
+            <TextInput
+              style={[styles.input, nameMissing && styles.inputError]}
+              placeholder="John Doe"
+              placeholderTextColor="#A0A5BA"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+              textContentType="name"
+            />
+
+            <Text style={styles.inputLabel}>EMAIL</Text>
+            <TextInput
+              style={[styles.input, emailMissing && styles.inputError]}
+              placeholder="example@gmail.com"
+              placeholderTextColor="#A0A5BA"
+              value={emailAddress}
+              onChangeText={setEmailAddress}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+            />
+
+            <Text style={styles.inputLabel}>PASSWORD</Text>
+            <View style={styles.inputInPass}>
+              <TextInput
+                style={[styles.input, styles.inputPassword, passwordMissing && styles.inputError]}
+                placeholder="* * * * * * * * * * "
+                placeholderTextColor="#A0A5BA"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="password"
+              />
+              <TouchableOpacity
+                style={styles.eye}
+                onPress={() => setShowPassword(!showPassword)}
+                activeOpacity={0.6}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="#B4B9CA"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputLabel}>RE-TYPE PASSWORD</Text>
+            <View style={styles.inputInPass}>
+              <TextInput
+                style={[styles.input, styles.inputPassword, confirmMissing && styles.inputError]}
+                placeholder=" * * * * * * * * * *"
+                placeholderTextColor="#A0A5BA"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="newPassword"
+              />
+              <TouchableOpacity
+                style={styles.eye}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                activeOpacity={0.6}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="#B4B9CA"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <TouchableOpacity
+            style={[styles.sendCodeTouchableOpacity, loading && styles.sendCodeDisabled]}
+            onPress={onSignUpPress}
+            disabled={loading || !isLoaded}
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.sendCodeTouchableOpacityText}>SIGN UP</Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -211,6 +218,9 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: '#121223',
+  },
+  content: {
+    flex: 1,
   },
   mainContainerTitle: {
     fontFamily: "Sen_700Bold",

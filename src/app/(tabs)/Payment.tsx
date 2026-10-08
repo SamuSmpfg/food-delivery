@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Image } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
@@ -9,6 +9,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Feather from '@expo/vector-icons/Feather'
 import { useCart } from '../../context/CartContext'
 import { postJson } from '../../lib/api'
+import useCreateOrder from '../../../hooks/useCreateOrder'
 
 type Method = 'cash' | 'visa' | 'mastercard' | 'paypal'
 
@@ -25,12 +26,12 @@ const PANELS: Record<Method, { title: string; text: string }> = {
     text: 'Have the exact amount ready when your order arrives'
   },
   visa: {
-    title: 'No Visa card added',
-    text: 'Add a Visa card to pay for this order'
+    title: 'No visa card added',
+    text: 'You can add a visa card and save it for later'
   },
   mastercard: {
-    title: 'No Mastercard added',
-    text: 'Add a Mastercard to pay for this order'
+    title: 'No master card added',
+    text: 'You can add a mastercard and save it for later'
   },
   paypal: {
     title: 'Pay with PayPal',
@@ -47,9 +48,12 @@ const MethodLogo = ({ method }: { method: Method }) => {
   }
   if (method === 'mastercard') {
     return (
-      <View style={styles.mastercardLogo}>
-        <View style={[styles.mastercardCircle, styles.mastercardRed]} />
-        <View style={[styles.mastercardCircle, styles.mastercardOrange]} />
+      <View style={styles.mastercardWrapper}>
+        <View style={styles.mastercardLogo}>
+          <View style={[styles.mastercardCircle, styles.mastercardRed]} />
+          <View style={[styles.mastercardCircle, styles.mastercardOrange]} />
+        </View>
+        <Text style={styles.mastercardText}>mastercard</Text>
       </View>
     )
   }
@@ -63,38 +67,68 @@ const MethodLogo = ({ method }: { method: Method }) => {
 
 const PanelIcon = ({ method }: { method: Method }) => {
   if (method === 'cash') {
-    return <MaterialCommunityIcons name="cash-multiple" size={48} color="#FF7622" />
+    return <MaterialCommunityIcons name="cash-multiple" size={64} color="#FF7622" />
   }
   if (method === 'paypal') {
-    return <FontAwesome name="paypal" size={44} color="#179BD7" />
+    return <FontAwesome name="paypal" size={56} color="#179BD7" />
   }
-  return <MaterialCommunityIcons name="credit-card-outline" size={48} color="#FF7622" />
+  if (method === 'visa') {
+    return <Text style={styles.panelVisaLogo}>VISA</Text>
+  }
+  return (
+    <Image
+      source={require('../../../assets/images/card.png')}
+      style={styles.cardImage}
+      resizeMode="contain"
+    />
+  )
 }
 
 const Payment = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { total, clear } = useCart()
+  const { items, count, total, placeOrder } = useCart()
+  const { createOrder } = useCreateOrder()
 
-  const [method, setMethod] = useState<Method>('mastercard')
+  const [method, setMethod] = useState<Method>('cash')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const isCard = method === 'visa' || method === 'mastercard'
   const panel = PANELS[method]
-  const methodLabel = METHODS.find((item) => item.id === method)?.label ?? ''
 
-  const finish = (label: string) => {
+  const finish = async (label: string) => {
     const paid = total
+    const restaurantName = items.find((item) => item.restaurant)?.restaurant || 'Restaurant'
+
+    await createOrder({
+      restaurantName,
+      total: Math.round(paid * 100) / 100,
+      itemsCount: count
+    })
+
+    placeOrder()
     router.replace({
       pathname: '/(tabs)/PaymentSuccess',
       params: { method: label, total: String(paid) }
     })
-    clear()
   }
 
   const goToAddCard = () => {
     router.navigate({ pathname: '/(tabs)/AddCard', params: { brand: method } })
+  }
+
+  const payWithCash = async () => {
+    setLoading(true)
+    setError('')
+
+    try {
+      await finish('Cash')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const payWithPayPal = async () => {
@@ -114,7 +148,7 @@ const Payment = () => {
       })
 
       if (result.status === 'COMPLETED') {
-        finish('PayPal')
+        await finish('PayPal')
       } else {
         setError('The PayPal payment was not completed')
       }
@@ -127,7 +161,7 @@ const Payment = () => {
 
   const handleConfirm = () => {
     if (method === 'cash') {
-      finish('Cash')
+      payWithCash()
       return
     }
     if (method === 'paypal') {
@@ -213,9 +247,7 @@ const Payment = () => {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.confirmButtonText}>
-              {isCard ? `ADD ${methodLabel.toUpperCase()} CARD` : 'PAY & CONFIRM'}
-            </Text>
+            <Text style={styles.confirmButtonText}>PAY & CONFIRM</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -258,15 +290,15 @@ const styles = StyleSheet.create({
   methodsList: {
     paddingHorizontal: 24,
     paddingTop: 10,
-    gap: 16
+    gap: 14
   },
   methodItem: {
     alignItems: 'center',
     gap: 8
   },
   methodTile: {
-    width: 90,
-    height: 80,
+    width: 87,
+    height: 72,
     borderRadius: 10,
     borderWidth: 2,
     borderColor: 'transparent',
@@ -280,10 +312,10 @@ const styles = StyleSheet.create({
   },
   checkBadge: {
     position: 'absolute',
-    top: -8,
-    right: -8,
-    width: 22,
-    height: 22,
+    top: -10,
+    right: -10,
+    width: 24,
+    height: 24,
     borderRadius: 100,
     backgroundColor: '#FF7622',
     alignItems: 'center',
@@ -298,15 +330,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Sen_700Bold',
     fontStyle: 'italic',
     fontSize: 22,
-    color: '#1A1F71'
+    color: '#3B5DA8'
+  },
+  panelVisaLogo: {
+    fontFamily: 'Sen_700Bold',
+    fontStyle: 'italic',
+    fontSize: 56,
+    color: '#3B5DA8'
+  },
+  mastercardWrapper: {
+    alignItems: 'center'
   },
   mastercardLogo: {
     flexDirection: 'row',
     alignItems: 'center'
   },
   mastercardCircle: {
-    width: 26,
-    height: 26,
+    width: 22,
+    height: 22,
     borderRadius: 100
   },
   mastercardRed: {
@@ -314,12 +355,18 @@ const styles = StyleSheet.create({
   },
   mastercardOrange: {
     backgroundColor: '#F79E1B',
-    marginLeft: -10
+    marginLeft: -8
+  },
+  mastercardText: {
+    fontFamily: 'Sen_400Regular',
+    fontSize: 7,
+    color: '#181C2E',
+    marginTop: 3
   },
   paypalLogo: {
     fontFamily: 'Sen_700Bold',
     fontStyle: 'italic',
-    fontSize: 20
+    fontSize: 19
   },
   paypalDark: {
     color: '#253B80'
@@ -329,31 +376,32 @@ const styles = StyleSheet.create({
   },
   panel: {
     marginTop: 24,
-    borderRadius: 16,
+    borderRadius: 10,
     backgroundColor: '#F6F8FA',
-    paddingVertical: 32,
+    paddingVertical: 40,
     paddingHorizontal: 24,
     alignItems: 'center'
   },
   panelIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 100,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center'
+  },
+  cardImage: {
+    width: 350,
+    height: 167
   },
   panelTitle: {
     fontFamily: 'Sen_700Bold',
     fontSize: 16,
-    color: '#181C2E',
-    marginTop: 20
+    color: '#32343E',
+    marginTop: 28
   },
   panelText: {
     fontFamily: 'Sen_400Regular',
-    fontSize: 14,
-    lineHeight: 24,
-    color: '#7E8A97',
+    fontSize: 15,
+    lineHeight: 26,
+    letterSpacing: 0.5,
+    color: '#6B6E82',
     textAlign: 'center',
     marginTop: 8
   },
@@ -362,6 +410,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     borderColor: '#F0F5FA',
+    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

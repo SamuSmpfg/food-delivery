@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal, BackHandler } from 'react-native'
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useMemo } from 'react'
 import Feather from '@expo/vector-icons/Feather';
@@ -10,10 +10,29 @@ import { LinearGradient }  from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { CATEGORIES, FOODS, RESTAURANTS } from '../../data/mockData'
 import { useCart } from '../../context/CartContext'
+import { useUser } from '@clerk/clerk-expo';
+import { useAccountAddress } from '../../../hooks/useAccountAddress';
+import useBackHandler from '../../../hooks/useBackHandler'
+import { useAddresses } from '../../lib/addressStore'
+import { useSelectedAddressId } from '../../lib/selectedAddressStore'
 
 const HomeScreen = () => {
   const router = useRouter()
   const { count } = useCart()
+  const { user } = useUser();
+  const { address, loading } = useAccountAddress();
+
+  const addresses = useAddresses();
+  const selectedAddressId = useSelectedAddressId();
+
+  const selectedAddress = addresses.find((item) => item.id === selectedAddressId);
+  const selectedAddressText = selectedAddress
+    ? `${selectedAddress.address}${selectedAddress.apartment ? ` - Apt ${selectedAddress.apartment}` : ''}`
+    : null;
+
+  useBackHandler(() => BackHandler.exitApp())
+
+  const firstName = user?.firstName ?? '';
 
   const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0].id);
   const [modalVisible, setModalVisible] = useState(false);
@@ -61,12 +80,22 @@ const HomeScreen = () => {
 
             <View style={styles.textHeaderContainer}>
               <Text style={styles.headerDeliver}>Deliver To</Text>
-              <View>
-                <TouchableOpacity style={styles.locationUserPopUp}>
-                  <Text style={styles.locationUser}>Halal Lab office</Text>
-                  <MaterialCommunityIcons name="menu-down" size={24} color="black" />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={styles.locationUserPopUp}
+                activeOpacity={0.7}
+                onPress={() =>
+                  router.push({ pathname: '/(tabs)/Adresses', params: { select: 'true' } })
+                }
+              >
+                <Text
+                  style={styles.locationUser}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {selectedAddressText ?? (loading ? 'Loading...' : address || 'Add an address')}
+                </Text>
+                <MaterialCommunityIcons name="menu-down" size={24} color="#676767" />
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity 
@@ -81,7 +110,7 @@ const HomeScreen = () => {
           </View>
 
           <View style={styles.welcomeUserContainer}>
-            <Text style={styles.welcomeUserNormal}>Hey Halal,</Text>
+            <Text style={styles.welcomeUserNormal}>Hey {firstName},</Text>
             <Text style={styles.welcomeUserBold}> Good Afternoon!</Text>
           </View>
 
@@ -251,21 +280,26 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 100,
     borderBottomRightRadius: 100,
   },
-  textHeaderContainer: {
-    marginLeft: 12
-  },
   headerDeliver: {
     fontFamily: "Sen_700Bold",
     color: '#FF7622',
     fontSize: 14
   },
-  locationUser: {
-    color: '#676767',
-    fontSize: 12,
-    fontFamily: "Sen_400Regular"
+  textHeaderContainer: {
+    flex: 1,            // ocupa o espaço entre o menu e a sacola
+    marginHorizontal: 12
   },
   locationUserPopUp: {
-    flexDirection: 'row'
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',  // o botão só ocupa o tamanho do conteúdo
+    maxWidth: '100%'
+  },
+  locationUser: {
+    flexShrink: 1,      // permite o texto encolher e cortar com "..."
+    color: '#676767',
+    fontSize: 12,
+    fontFamily: 'Sen_400Regular'
   },
   shopIcon: {
     backgroundColor: '#181C2E',
@@ -511,7 +545,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
-    
   }
 })
 

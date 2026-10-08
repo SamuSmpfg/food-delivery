@@ -7,15 +7,21 @@ import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'expo-router';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { KEYWORDS, RESTAURANTS, FOODS, FAST_FOODS, chunk } from '../../data/mockData'
+import FilterModal, { RestaurantFilters } from '@/components/FilterModal';
+import { useCart } from '@/context/CartContext';
 
 const Search = () => {
 
   const router = useRouter()
   const inputRef = useRef<TextInput>(null)
   const [query, setQuery] = useState('')
+    const { count } = useCart()
 
   const normalizedQuery = query.trim().toLowerCase()
   const isSearching = normalizedQuery.length > 0
+  const [filterVisible, setFilterVisible] = useState(false)
+  const [filters, setFilters] = useState<RestaurantFilters | null>(null)
+  
 
   const filteredFoods = useMemo(() => {
     if (!normalizedQuery) return []
@@ -65,10 +71,15 @@ const Search = () => {
           </TouchableOpacity>
           <Text style={styles.pageTitle}>Search</Text>
 
-          <TouchableOpacity style={styles.shoppingBagContainer}>
-            <Feather name="shopping-bag" size={30} color="white" />
-            <Text style={styles.shoppingBagNotifications}>2</Text>
-          </TouchableOpacity>
+            <TouchableOpacity 
+            style={styles.shoppingBagContainer}
+            onPress={() => router.navigate('/(tabs)/Cart')}
+            >
+              <Feather name="shopping-bag" size={24} color="white" />
+              {count > 0 && (
+                <Text style={styles.shoppingBagNotifications}>{count > 99 ? '99+' : count}</Text>
+              )}
+            </TouchableOpacity>
         </View>
       )
     }
@@ -96,11 +107,15 @@ const Search = () => {
           >
             <Feather name="search" size={22} color="white" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.filterActionButton}>
+          <TouchableOpacity 
+          style={styles.filterActionButton}
+          onPress={() => setFilterVisible(true)}
+          >
             <Ionicons name="options-outline" size={24} color="#181C2E" />
           </TouchableOpacity>
         </View>
       </View>
+      
     )
   }
 
@@ -177,7 +192,7 @@ const Search = () => {
     if (filteredFoods.length === 0 && filteredRestaurants.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>could not find your dish, try another plate :(</Text>
+          <Text style={styles.emptyText}>Could not find your dish, try another plate :(</Text>
         </View>
       )
     }
@@ -247,6 +262,13 @@ const Search = () => {
             ))}
           </>
         )}
+
+
+            <FilterModal
+        visible={filterVisible}
+        onClose={() => setFilterVisible(false)}
+        onApply={setFilters}
+      />
       </>
     )
   }
@@ -287,6 +309,7 @@ const Search = () => {
         {isSearching ? renderResults() : renderDefaultContent()}
       </SafeAreaView>
     </ScrollView>
+    
   )
 }
 

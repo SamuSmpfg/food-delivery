@@ -21,6 +21,13 @@ const TabsLayout = () => {
           <Stack.Screen name="Payment" />
           <Stack.Screen name="AddCard" />
           <Stack.Screen name="PaymentSuccess" options={{ gestureEnabled: false }} />
+          <Stack.Screen
+            name="TrackingOrder"
+            options={({ route }) => ({
+              gestureEnabled:
+                (route.params as { from?: string } | undefined)?.from === 'orders'
+            })}
+          />
         </Stack>
       </CartProvider>
     </StripeProvider>

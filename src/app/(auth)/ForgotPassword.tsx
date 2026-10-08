@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { useSignIn, useAuth } from '@clerk/clerk-expo';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-const RESEND_SECONDS = 30;
+const CODE_LENGTH = 6;
+const RESEND_SECONDS = 50;
 
 const ForgotPassword = () => {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -13,7 +14,7 @@ const ForgotPassword = () => {
 
   const [step, setStep] = useState<'email' | 'reset'>('email');
   const [emailAddress, setEmailAddress] = useState('');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -21,6 +22,7 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [cooldown, setCooldown] = useState(0);
+  const inputs = useRef<(TextInput | null)[]>([]);
 
   const grayScale = useRef(new Animated.Value(0.8)).current;
   const dashedScale = useRef(new Animated.Value(0.8)).current;
@@ -75,6 +77,35 @@ const ForgotPassword = () => {
     }
   };
 
+  const handleChange = (text: string, index: number) => {
+    const digits = text.replace(/\D/g, '');
+
+    if (!digits) {
+      const next = [...code];
+      next[index] = '';
+      setCode(next);
+      return;
+    }
+
+    const next = [...code];
+    for (let i = 0; i < digits.length && index + i < CODE_LENGTH; i++) {
+      next[index + i] = digits[i];
+    }
+    setCode(next);
+
+    const focusIndex = Math.min(index + digits.length, CODE_LENGTH - 1);
+    inputs.current[focusIndex]?.focus();
+  };
+
+  const handleKeyPress = (key: string, index: number) => {
+    if (key === 'Backspace' && !code[index] && index > 0) {
+      const next = [...code];
+      next[index - 1] = '';
+      setCode(next);
+      inputs.current[index - 1]?.focus();
+    }
+  };
+
   const onResendPress = async () => {
     if (!isLoaded || loading || cooldown > 0) return;
 
@@ -86,7 +117,8 @@ const ForgotPassword = () => {
         strategy: 'reset_password_email_code',
         identifier: emailAddress.trim(),
       });
-      setCode('');
+      setCode(Array(CODE_LENGTH).fill(''));
+      inputs.current[0]?.focus();
       setCooldown(RESEND_SECONDS);
     } catch (err: any) {
       setError(getErrorMessage(err, 'Error sending the code'));
@@ -98,7 +130,9 @@ const ForgotPassword = () => {
   const onResetPress = async () => {
     if (!isLoaded || loading) return;
 
-    if (code.length < 6 || !password || !confirmPassword) {
+    const fullCode = code.join('');
+
+    if (fullCode.length < CODE_LENGTH || !password || !confirmPassword) {
       setError('Fill up all the fields');
       return;
     }
@@ -114,7 +148,7 @@ const ForgotPassword = () => {
     try {
       const result = await signIn.attemptFirstFactor({
         strategy: 'reset_password_email_code',
-        code,
+        code: fullCode,
         password,
       });
 
@@ -177,17 +211,34 @@ const ForgotPassword = () => {
           </View>
         ) : (
           <View style={styles.inputWrapper}>
-            <Text style={styles.inputLabel}>CODE</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="000000"
-              placeholderTextColor="#A0A5BA"
-              value={code}
-              onChangeText={(text) => setCode(text.replace(/\D/g, '').slice(0, 6))}
-              keyboardType="number-pad"
-              textContentType="oneTimeCode"
-              maxLength={6}
-            />
+            <View style={styles.codeWrapper}>
+              <Text style={styles.inputLabel}>CODE</Text>
+              <TouchableOpacity
+              onPress={onResendPress}
+              disabled={loading || cooldown > 0}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.backText, cooldown > 0 && styles.resendTextDisabled]}>
+                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+              </Text>
+            </TouchableOpacity>
+            </View>
+            <View style={styles.codeWrapper}>
+              {code.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => { inputs.current[index] = ref; }}
+                  style={styles.codeInput}
+                  value={digit}
+                  onChangeText={(text) => handleChange(text, index)}
+                  onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+                  keyboardType="number-pad"
+                  textContentType="oneTimeCode"
+                  maxLength={index === 0 ? CODE_LENGTH : 1}
+                  selectTextOnFocus
+                />
+              ))}
+            </View>
 
             <Text style={[styles.inputLabel, styles.inputLabelSpaced]}>NEW PASSWORD</Text>
             <View style={styles.inputInPass}>
@@ -269,19 +320,9 @@ const ForgotPassword = () => {
         {step === 'reset' ? (
           <View>
             <TouchableOpacity
-              onPress={onResendPress}
-              disabled={loading || cooldown > 0}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.backText, cooldown > 0 && styles.resendTextDisabled]}>
-                {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               onPress={() => {
                 setStep('email');
-                setCode('');
+                setCode(Array(CODE_LENGTH).fill(''));
                 setPassword('');
                 setConfirmPassword('');
                 setShowPassword(false);
@@ -359,6 +400,21 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 10,
     paddingLeft: 16
   },
+  codeWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+  codeInput: {
+    backgroundColor: "#F0F5FA",
+    width: 48,
+    height: 62,
+    marginTop: 10,
+    borderRadius: 10,
+    textAlign: 'center',
+    fontFamily: "Sen_700Bold",
+    fontSize: 20,
+    color: '#32343E'
+  },
   inputInPass: {
     position: 'relative',
     justifyContent: 'center'
@@ -388,7 +444,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20
+    marginVertical: 20
   },
   sendCodeDisabled: {
     opacity: 0.6
@@ -403,10 +459,9 @@ const styles = StyleSheet.create({
     color: '#FF7622',
     fontSize: 14,
     textAlign: 'center',
-    marginTop: 24
   },
   resendTextDisabled: {
-    color: '#A0A5BA'
+    color: '#32343E'
   },
   raysGray: {
     position: "absolute",

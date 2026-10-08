@@ -48,7 +48,7 @@ const onBoarding = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF"  }}>
       <FlatList
         ref={flatListRef}
         data={slides}
