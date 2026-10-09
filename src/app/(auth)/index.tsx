@@ -1,6 +1,7 @@
 /// <reference types="react-native" />
 
 import { Redirect } from "expo-router";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Image, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,6 +10,9 @@ export default function Index() {
   const grayScale = useRef(new Animated.Value(0)).current;
   const orangeScale = useRef(new Animated.Value(0)).current;
   const [showSplash, setShowSplash] = useState(true);
+
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { user, isLoaded: userLoaded } = useUser();
 
   useEffect(() => {
     Animated.sequence([
@@ -31,8 +35,16 @@ export default function Index() {
     return () => clearTimeout(timer);
   }, []);
 
-  if (!showSplash) {
-    return <Redirect href="/onBoarding" />;
+  // A splash continua na tela até o Clerk terminar de carregar a sessão
+  const ready = authLoaded && (!isSignedIn || userLoaded);
+
+  if (!showSplash && ready) {
+    if (!isSignedIn) {
+      return <Redirect href="/onBoarding" />;
+    }
+
+    const isChef = user?.publicMetadata?.role === "chef";
+    return <Redirect href={isChef ? "/(chef)" : "/(tabs)/HomeScreen"} />;
   }
 
   return (

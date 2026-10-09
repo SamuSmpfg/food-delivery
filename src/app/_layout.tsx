@@ -22,6 +22,7 @@ export default function RootLayout() {
     >
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="(chef)" options={{ gestureEnabled: false }} />
       </Stack>
     </ClerkProvider>
   );

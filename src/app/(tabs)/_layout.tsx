@@ -1,8 +1,14 @@
-import { Stack } from 'expo-router'
+import { Redirect, Stack } from 'expo-router'
 import { StripeProvider } from '@stripe/stripe-react-native'
 import { CartProvider } from '../../context/CartContext'
+import { useRole } from '../../../hooks/useRole'
 
 const TabsLayout = () => {
+  const { role, isLoaded } = useRole()
+
+  if (!isLoaded) return null
+  if (role === 'chef') return <Redirect href="/(chef)" />
+
   return (
     <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}>
       <CartProvider>

@@ -101,6 +101,16 @@ const SignIn = () => {
           />
           <Text style={styles.mainContainerTitle}>LOG IN</Text>
           <Text style={styles.mainContainerText}>Please sign in to your existing account</Text>
+
+          <View style={styles.chefContainer}>
+          <Text style={styles.mainContainerText}>Are you a Chef?</Text>
+          <TouchableOpacity
+            onPress={() => router.navigate('/chef-application')}
+          >
+            <Text style={styles.chefLink}>Click Here!</Text>
+          </TouchableOpacity>
+          </View>
+
         </View>
 
         <ScrollView
@@ -170,7 +180,7 @@ const SignIn = () => {
             <TouchableOpacity>
               <Text
                 style={styles.textForgotPassword}
-                onPress={() => router.navigate('/(auth)/ForgotPassword')}
+                onPress={() => router.push('/(auth)/ForgotPassword')}
               >
                 Forgot Password
               </Text>
@@ -240,10 +250,21 @@ const styles = StyleSheet.create({
     fontSize: 30,
     marginBottom: 16
   },
+  chefContainer: {
+    flexDirection: 'row',
+    gap: 6
+  },
+  chefLink: {
+    fontFamily: "Sen_700Bold",
+    color: "#fff",
+    fontSize: 14,
+    marginBottom: 8
+  },
   mainContainerText: {
     fontFamily: "Sen_400Regular",
     color: "#fff",
     fontSize: 14,
+    marginBottom: 8
   },
   headerContainer: {
     height: 250,

@@ -23,8 +23,6 @@ const RestaurantView = () => {
 
   const restaurant = RESTAURANTS.find((item) => item.id === id)
 
-  // Aqui só os critérios de prato (preço) são aplicados: rating e tempo
-  // são do restaurante inteiro e esvaziariam o cardápio.
   const restaurantFoods = useMemo(
     () =>
       FOODS.filter(
