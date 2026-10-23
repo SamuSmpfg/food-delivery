@@ -22,12 +22,12 @@ yarn-error.*
 .DS_Store
 *.pem
 
-.env
-.env*.local
-
 *.tsbuildinfo
 
 /example/
 
 /ios
 /android
+
+.env
+.env*.local

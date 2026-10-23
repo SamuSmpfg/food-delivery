@@ -28,6 +28,40 @@ export type Food = {
   description: string
 }
 
+export type ChefOrder = {
+  id: string
+  name: string
+  category: string
+  price: number
+  rating: number
+  numberOfRating: string
+  deliveryMode: string
+}
+
+export type IngredientCategory = 'Basic' | 'Fruit'
+
+export type Ingredient = {
+  id: string
+  name: string
+  category: IngredientCategory
+}
+
+export type DataType = {
+  label: string;
+  value: number;
+};
+
+export const data: DataType[] = [
+  {label: '10AM', value: 10},
+  {label: '11AM', value: 12},
+  {label: '12PM', value: 9},
+  {label: '01PM', value: 15},
+  {label: '02PM', value: 12},
+  {label: '03PM', value: 14},
+  {label: '04PM', value: 13},
+];
+
+
 const LOREM =
   'Maecenas sed diam eget risus varius blandit sit amet non magna. Integer posuere erat a ante venenatis dapibus posuere velit aliquet.'
 
@@ -39,11 +73,26 @@ export const KEYWORDS: Keyword[] = [
   { id: '5', name: 'Ice Cream' },
 ]
 
+export const INGREDIENTS: Ingredient[] = [
+  { id: '1', name: 'Salt', category: 'Basic' },
+  { id: '2', name: 'Chicken', category: 'Basic' },
+  { id: '3', name: 'Onion', category: 'Basic' },
+  { id: '4', name: 'Garlic', category: 'Basic' },
+  { id: '5', name: 'Peppers', category: 'Basic' },
+  { id: '6', name: 'Ginger', category: 'Basic' },
+  { id: '7', name: 'Avocado', category: 'Fruit' },
+  { id: '8', name: 'Apple', category: 'Fruit' },
+  { id: '9', name: 'Blueberry', category: 'Fruit' },
+  { id: '10', name: 'Broccoli', category: 'Fruit' },
+  { id: '11', name: 'Orange', category: 'Fruit' },
+  { id: '12', name: 'Walnut', category: 'Fruit' },
+]
+ 
 export const RESTAURANTS: Restaurant[] = [
   { id: '1', name: 'Pansi Restaurant', rating: 4.7, delivery: 'Free', time: '20 min', description: LOREM, offers: ['Delivery', 'Pick Up', 'Online payment available'] },
   { id: '2', name: 'American Spicy Burger Shop', rating: 4.3, delivery: 'Free', time: '25 min', description: LOREM, offers: ['Delivery', 'Offer', 'Online payment available'] },
   { id: '3', name: 'Cafenio Coffee Club', rating: 4.0, delivery: 'Free', time: '30 min', description: LOREM, offers: ['Pick Up', 'Offer'] },
-  { id: '4', name: 'Uttora Coffe House', rating: 4.5, delivery: 'Free', time: '20 min', description: LOREM, offers: ['Delivery', 'Pick Up', 'Offer', 'Online payment available'] },
+  { id: '4', name: 'Uttora Coffee House', rating: 4.5, delivery: 'Free', time: '20 min', description: LOREM, offers: ['Delivery', 'Pick Up', 'Offer', 'Online payment available'] },
   { id: '5', name: 'Rose Garden', rating: 4.6, delivery: 'Free', time: '15 min', description: LOREM, offers: ['Delivery', 'Online payment available'] },
   { id: '6', name: 'Kaji Firm Kitchen', rating: 4.2, delivery: 'Free', time: '35 min', description: LOREM, offers: ['Delivery', 'Pick Up'] },
   { id: '7', name: 'Kabab Restaurant', rating: 4.4, delivery: 'Free', time: '25 min', description: LOREM, offers: ['Delivery', 'Pick Up', 'Offer'] },
@@ -54,7 +103,7 @@ const restaurantName = (restaurantId: string) =>
 
 const RAW_FOODS: Omit<Food, 'restaurant'>[] = [
   { id: '1', name: 'Burger Bistro', restaurantId: '5', category: 'Burger', price: 40, description: LOREM },
-  { id: '2', name: "Smokin' Burger", restaurantId: '3', category: 'Coffee', price: 60, description: LOREM },
+  { id: '2', name: "Smokin' Burger", restaurantId: '3', category: 'Burger', price: 60, description: LOREM },
   { id: '3', name: 'Buffalo Burgers', restaurantId: '6', category: 'Burger', price: 75, description: LOREM },
   { id: '4', name: 'Bullseye Burgers', restaurantId: '7', category: 'Burger', price: 94, description: LOREM },
   { id: '5', name: 'Smash Burger', restaurantId: '2', category: 'Burger', price: 55, description: LOREM },
@@ -65,6 +114,13 @@ const RAW_FOODS: Omit<Food, 'restaurant'>[] = [
   { id: '10', name: 'Vanilla Ice Cream', restaurantId: '5', category: 'Ice Cream', price: 18, description: LOREM },
   { id: '11', name: 'Classic Hot Dog', restaurantId: '7', category: 'Hot Dog', price: 22, description: LOREM },
   { id: '12', name: 'Chili Dog', restaurantId: '2', category: 'Hot Dog', price: 26, description: LOREM },
+]
+
+export const CHEF_ORDERS: ChefOrder[] = [
+  { id: '1', name: 'Burger Bistro', category: 'Breakfast', price: 40, rating: 3.9, numberOfRating: '(08 Reviews)', deliveryMode: 'Pick Up' },
+  { id: '2', name: "Smokin' Burger", category: 'Lunch', price: 60, rating: 4.5, numberOfRating: '(10 Reviews)', deliveryMode: 'Drop Off' },
+  { id: '3', name: 'Buffalo Burgers', category: 'Dinner', price: 75, rating: 2.5, numberOfRating: '(15 Reviews)', deliveryMode: 'Pick Up' },
+  { id: '4', name: 'Bullseye Burgers', category: 'Lunch', price: 94, rating: 4.9, numberOfRating: '(13 Reviews)', deliveryMode: 'Drop Off' },
 ]
 
 export const FOODS: Food[] = RAW_FOODS.map((food) => ({

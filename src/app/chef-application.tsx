@@ -61,7 +61,8 @@ export default function ChefApplication() {
       }
 
       return true;
-    } catch {
+    } catch (e) {
+      console.log('API_URL:', API_URL, 'fetch error:', e);
       setError('No connection to the server. Try again.');
       return false;
     } finally {

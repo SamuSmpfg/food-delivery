@@ -2,7 +2,6 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import React from 'react'
 import { Order } from '../../hooks/useOrders'
-import { MaterialIcons } from '@expo/vector-icons'
 
 type OrderCardProps = {
   order: Order

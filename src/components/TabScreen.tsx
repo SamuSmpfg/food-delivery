@@ -7,12 +7,13 @@ import useOrders from '../../hooks/useOrders'
 
 export enum CustomTab {
   Tab1,
-  Tab2,
+  Tab2
 }
 
 const TabScreen = () => {
   const router = useRouter()
   const [selectedTab, setSelectedTab] = useState<CustomTab>(CustomTab.Tab1)
+  const [selectedFoodTab, setSelectedFoodTab] = useState<CustomTab>(CustomTab.Tab1)
   const { orders, loading, error, refetch, cancelOrder } = useOrders()
 
   useFocusEffect(
@@ -21,7 +22,7 @@ const TabScreen = () => {
     }, [refetch])
   )
 
-  const buttons: TabButtonType[] = [{ title: 'Ongoing' }, { title: 'History' }]
+  const orderState: TabButtonType[] = [{ title: 'Ongoing' }, { title: 'History' }]
 
   const ongoingOrders = useMemo(
     () =>
@@ -61,7 +62,7 @@ const TabScreen = () => {
   return (
     <>
       <TabButtons
-        buttons={buttons}
+        buttons={orderState}
         selectedTab={selectedTab}
         setSelectedTab={setSelectedTab}
       />
