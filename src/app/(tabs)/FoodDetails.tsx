@@ -16,7 +16,7 @@ type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name']
 const INGREDIENT_ICONS: Record<string, IconName> = {
   Salt: 'shaker-outline',
   Chicken: 'food-drumstick-outline',
-  Onion: 'leaf',
+  Onion: 'leaf',  
   Basil: 'leaf',
   Fish: 'fish',
   Chili: 'chili-mild-outline',

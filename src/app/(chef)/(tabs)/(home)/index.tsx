@@ -1,13 +1,13 @@
 import AntDesign from '@expo/vector-icons/AntDesign'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import 'react-native-gesture-handler'
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions } from 'react-native'
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetBackdropProps } from '@gorhom/bottom-sheet'
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFlatList } from '@gorhom/bottom-sheet'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import LineChart from '@/components/LineChart'
-import { data } from '@/data/mockData'
+import { data, RUNNING } from '@/data/mockData'
 import { useFont } from '@shopify/react-native-skia'
 import AnimatedText from '@/components/AnimatedText'
 import { useSharedValue } from 'react-native-reanimated'
@@ -18,7 +18,6 @@ export default function ChefHome() {
   const CHART_MARGIN = 10
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const CHART_WIDTH = SCREEN_WIDTH - 82
-  const [selectedTime, setSelectedTime] = useState('Total')
   const selectedValue = useSharedValue(0)
 
   const font = useFont(
@@ -41,7 +40,7 @@ export default function ChefHome() {
         disappearsOnIndex={-1}
         opacity={0.67}
         pressBehavior="close"
-        style={[props.style, { backgroundColor: '#273F55' }]}
+        style={[props.style, { backgroundColor: '#273F55AB' }]}
       />
     ),
     []
@@ -49,8 +48,9 @@ export default function ChefHome() {
 
   if (!font) { return null };
   return (
-    <SafeAreaView style={styles.rootContainer}>
-      <ScrollView style={styles.scrollView}>
+    <>
+      <ScrollView  style={styles.rootContainer}>
+    <SafeAreaView style={styles.scrollView}>
         <View style={styles.safeAreaContainer}>
           <View style={styles.headerContainer}>
 
@@ -78,16 +78,18 @@ export default function ChefHome() {
               <Text style={styles.orderNumbers}>20</Text>
               <Text style={styles.orderLabel}>RUNNING ORDERS</Text>
             </TouchableOpacity>
+            <TouchableOpacity>
             <View style={styles.orderBox}>
               <Text style={styles.orderNumbers}>05</Text>
               <Text style={styles.orderLabel}>ORDER REQUEST</Text>
             </View>
+              </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.graphContainer}>
           <View style={styles.graphHeader}>
-            <Text style={styles.containerHeaderTitle}>{selectedTime} Revenue</Text>
+            <Text style={styles.containerHeaderTitle}>Total Revenue</Text>
             <TouchableOpacity style={styles.graphExpandButton}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={styles.graphExpandButtonText}>Daily</Text>
@@ -103,7 +105,6 @@ export default function ChefHome() {
               chartWidth={CHART_WIDTH}
               chartHeight={CHART_HEIGHT}
               chartMargin={CHART_MARGIN}
-              setSelectedTime={setSelectedTime}
               selectedValue={selectedValue}
             />
           </GestureHandlerRootView>
@@ -129,8 +130,9 @@ export default function ChefHome() {
         <View>
           <HorizontalList />
         </View>
+        </SafeAreaView>
+        </ScrollView>
 
-      </ScrollView>
 
       <BottomSheetModal
         ref={sheetRef}
@@ -139,36 +141,37 @@ export default function ChefHome() {
         backdropComponent={renderBackdrop}
         backgroundStyle={styles.sheetBackground}
       >
-        <BottomSheetView style={styles.sheetContent}>
-          <Text style={styles.ordinarySheetText}>20 Running orders</Text>
-
-          <View>
+        <BottomSheetFlatList
+          data={RUNNING}
+          keyExtractor={(item) => String(item.orderId)}
+          contentContainerStyle={styles.sheetContent}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <Text style={styles.ordinarySheetText}>20 Running orders</Text>
+          }
+          renderItem={({ item }) => (
             <View style={styles.sheetOrder}>
               <View style={styles.foodImgSheet} />
-              <View style={{ marginLeft: 16 }}>
-                <Text style={styles.foodClass}>#Breakfast</Text>
-                <Text style={styles.foodName}>Chicken Thai Biriyani</Text>
-                <Text style={styles.foodId}>ID: 32053</Text>
-                <View style={styles.priceAndTouchableOpacities}>
-                  <Text style={styles.ordinarySheetText}>$60</Text>
-                  <View style={styles.sheetButtons}>
-                    <TouchableOpacity style={styles.doneTouchableOpacity}>
-                      <Text style={{ fontFamily: 'Sen_400Regular', color: 'white' }}>Done</Text>
-                    </TouchableOpacity>
+              <View style={{ flexDirection: 'column', gap: 4, marginLeft: 16 }}>
+                <Text style={styles.foodClass}>{item.class}</Text>
+                <Text style={styles.foodName}>{item.title}</Text>
+                <Text style={styles.foodId}>ID: {item.orderId}</Text>
 
-                    <TouchableOpacity style={styles.cancelTouchableOpacity}>
-                      <Text style={{ fontFamily: 'Sen_400Regular', color: '#FF3326' }}>Cancel</Text>
-                    </TouchableOpacity>
-                  </View>
+                <View style={styles.sheetButtons}>
+                  <Text style={[styles.foodName, { fontFamily: 'Sen_400Regular', marginRight: 40 }]}>${item.price}</Text>
+                  <TouchableOpacity style={styles.doneTouchableOpacity}>
+                    <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#fff' }}>Done</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.cancelTouchableOpacity}>
+                    <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#FF3326' }}>Cancel</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
-          </View>
-
-        </BottomSheetView>
+          )}
+        />
       </BottomSheetModal>
-
-    </SafeAreaView>
+    </>
   )
 }
 
@@ -176,10 +179,10 @@ const styles = StyleSheet.create({
   rootContainer: {
     flex: 1,
     backgroundColor: '#f7f8f9',
-    paddingBottom: 80
   },
   scrollView: {
     flex: 1,
+    paddingBottom: 54
   },
   safeAreaContainer: {
     paddingHorizontal: 24,
@@ -289,6 +292,7 @@ const styles = StyleSheet.create({
   sheetButtons: {
     flexDirection: 'row',
     gap: 8,
+    flex: 1
   },
   doneTouchableOpacity: {
     backgroundColor: '#FF7622',

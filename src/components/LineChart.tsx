@@ -9,10 +9,11 @@ import {
   runOnJS,
   SharedValue
 } from 'react-native-reanimated';
-import { DataType } from '../data/data';
+import { DataType } from '../data/mockData';
 import Gradient from './Gradient';
 import XAxisText from './XAxisText';
 import Cursor from './Cursor';
+import CursorTooltip from './CursorTooltip';
 import { getYForX, parse } from 'react-native-redash';
 import {
   Gesture,
@@ -25,17 +26,19 @@ type Props = {
   chartWidth: number;
   chartHeight: number;
   chartMargin: number;
-  setSelectedTime: React.Dispatch<React.SetStateAction<string>>;
   selectedValue: SharedValue<number>
 };
 
-const LineChart = ({ chartHeight, chartMargin, chartWidth, data, setSelectedTime, selectedValue }: Props) => {
+const LineChart = ({ chartHeight, chartMargin, chartWidth, data, selectedValue }: Props) => {
   const animationLine = useSharedValue(0);
   const animationGradient = useSharedValue({ x: 0, y: 0 });
   const cx = useSharedValue(0);
   const cy = useSharedValue(0);
+  const tooltipValue = useSharedValue(0);
 
   const [showCursor, setShowCursor] = useState(false)
+
+  const totalValue = data ? data.reduce((acc, cur) => acc + cur.value, 0) : 0
 
   useEffect(() => {
     animationLine.value = withTiming(1, { duration: 1000 });
@@ -64,11 +67,9 @@ const LineChart = ({ chartHeight, chartMargin, chartWidth, data, setSelectedTime
 
   const max = Math.max(...data.map(val => val.value));
   const min = Math.min(...data.map(val => val.value));
-  
-  const totalValue = data.reduce((acc, cur) => acc + cur.value, 0)
 
   const yDomain = [min, max];
-  const yRange = [chartHeight, 0];
+  const yRange = [chartHeight, 48];
   const y = scaleLinear().domain(yDomain).range(yRange);
 
   const curvedLine = line<DataType>()
@@ -91,25 +92,26 @@ const LineChart = ({ chartHeight, chartMargin, chartWidth, data, setSelectedTime
   const handleGestureEvent = (e: PanGestureHandlerEventPayload) => {
     'worklet'
 
-    const index = Math.floor(e.absoluteX / stepX)
-    runOnJS(setSelectedTime)(data[index].label)
-    selectedValue.value = withTiming(data[index].value)
+    const rawIndex = Math.floor(e.absoluteX / stepX)
+    const index = Math.min(Math.max(rawIndex, 0), data.length - 1)
+    tooltipValue.value = data[index].value
 
     const clampValue = clamp(
       Math.floor(e.absoluteX / stepX) * stepX + chartMargin, chartMargin, chartWidth - chartMargin);
+    const nextY = getYForX(path, Math.floor(clampValue))
+
     cx.value = clampValue;
-    cy.value = getYForX(path, Math.floor(clampValue))!;
+    if (nextY !== null && nextY !== undefined) {
+      cy.value = nextY
+    }
   };
 
   const pan = Gesture.Pan()
   .onTouchesDown(() => {
     runOnJS(setShowCursor)(true)
-
   })
   .onTouchesUp(() => {
     runOnJS(setShowCursor)(false)
-    runOnJS(setSelectedTime)('Total')
-    selectedValue.value = withTiming(totalValue)
   })
     .onBegin(handleGestureEvent)
     .onChange(handleGestureEvent);
@@ -145,6 +147,9 @@ const LineChart = ({ chartHeight, chartMargin, chartWidth, data, setSelectedTime
           />
         ))}
         {showCursor && <Cursor cx={cx} cy={cy} chartHeight={chartHeight} />}
+        {showCursor && (
+          <CursorTooltip cx={cx} cy={cy} value={tooltipValue} canvasWidth={chartWidth + 20} />
+        )}
       </Canvas>
     </GestureDetector>
   );

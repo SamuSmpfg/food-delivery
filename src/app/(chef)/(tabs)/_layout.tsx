@@ -12,7 +12,7 @@ export default function ChefTabsLayout() {
       <Tabs.Screen name="FoodList" />
       <Tabs.Screen name="AddNew" />
       <Tabs.Screen name="Notifications" />
-      <Tabs.Screen name="Profile" />
+      <Tabs.Screen name="(profile)" />
     </Tabs>
   )
 }

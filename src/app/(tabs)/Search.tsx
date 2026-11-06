@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
     height: 92,
     borderRadius: 15,
     top: -90,
-    right: -10
+    right: -2,
   },
   popularRestaurantBoxExtra: {
     backgroundColor: '#fff',
@@ -709,10 +709,11 @@ const styles = StyleSheet.create({
     height: 110,
     borderRadius: 15,
     shadowColor: '#96969A26',
-    shadowOffset: { width: 12, height: 12 },
+    shadowOffset: { width: 16, height: 16 },
     shadowOpacity: 1,
-    shadowRadius: 30,
-    elevation: 4
+    shadowRadius: 12,
+    elevation: 4,
+    paddingHorizontal: 8,
   },
   fastFoodContainer: {
     flexDirection: 'row',
@@ -731,7 +732,7 @@ const styles = StyleSheet.create({
   restaurantInfoContainer: {
     top: 50,
     right: -10,
-    padding: 6
+    padding: 6,
   },
   emptyContainer: {
     alignItems: 'center',

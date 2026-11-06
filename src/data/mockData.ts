@@ -38,6 +38,13 @@ export type ChefOrder = {
   deliveryMode: string
 }
 
+export type RunningOrder = {
+  orderId: string
+  class: string
+  title: string
+  price: number
+}
+
 export type IngredientCategory = 'Basic' | 'Fruit'
 
 export type Ingredient = {
@@ -50,6 +57,30 @@ export type DataType = {
   label: string;
   value: number;
 };
+
+export type Notification = {
+  id: string,
+  name: string,
+  notificationCategory: string,
+  time: string
+}
+
+export type Messages = {
+  id: string,
+  name: string,
+  lastMessage: string,
+  status: boolean,
+  time: string,
+  notificationsNumber: number | false
+}
+
+export type Reviews = {
+  id: string,
+  date: string,
+  title: string,
+  rating: number,
+  comment: string
+}
 
 export const data: DataType[] = [
   {label: '10AM', value: 10},
@@ -69,7 +100,8 @@ export const KEYWORDS: Keyword[] = [
   { id: '1', name: 'Burger' },
   { id: '2', name: 'Sandwich' },
   { id: '3', name: 'Pizza' },
-  { id: '5', name: 'Sushi' }
+  { id: '4', name: 'Coffee' },
+  { id: '5', name: 'Ice Cream' },
 ]
 
 export const INGREDIENTS: Ingredient[] = [
@@ -86,7 +118,27 @@ export const INGREDIENTS: Ingredient[] = [
   { id: '11', name: 'Orange', category: 'Fruit' },
   { id: '12', name: 'Walnut', category: 'Fruit' },
 ]
+
+export const NOTIFICATIONS: Notification[] = [
+  {id: '1', name: 'Tanbir Ahamed', notificationCategory: 'Placed a new Order', time: '20 min ago'},
+  {id: '2', name: 'Salim Smith', notificationCategory: 'Left a 5 star review', time: '20 min ago'},
+  {id: '3', name: 'Royal Bengol', notificationCategory: 'Agreed to cancel', time: '20 min ago'},
+  {id: '4', name: 'Pabel Vuiya', notificationCategory: 'Placed a new Order', time: '20 min ago'},
+]
+
+export const MESSAGES: Messages[] = [
+  {id: '1', name: 'Royal Parvej', lastMessage: 'Sounds Awesome!', status: true, time: '19:37', notificationsNumber: 1},
+  {id: '2', name: 'Cameron Williamson', lastMessage: 'Ok, just hurry up a little bit...😊', status: true, time: '19:37', notificationsNumber: 2},
+  {id: '3', name: 'Ralph Edwards', lastMessage: 'Thanks dude.', status: true, time: '19:37', notificationsNumber: false},
+  {id: '4', name: 'Cody Fisher', lastMessage: 'How is it going...?', status: true, time: '19:37', notificationsNumber: false},
+  {id: '5', name: 'Eleanor Pena', lastMessage: 'Thanks for the awesome food man...!', status: false, time: '19:37', notificationsNumber: false},
+]
  
+export const REVIEWS: Reviews[] = [
+  {id: '1', date: '2023/10/10', title: 'Great Food and Service', rating: 5, comment: ''},
+
+]
+
 export const RESTAURANTS: Restaurant[] = [
   { id: '1', name: 'Pansi Restaurant', rating: 4.7, delivery: 'Free', time: '20 min', description: LOREM, offers: ['Delivery', 'Pick Up', 'Online payment available'] },
   { id: '2', name: 'American Spicy Burger Shop', rating: 4.3, delivery: 'Free', time: '25 min', description: LOREM, offers: ['Delivery', 'Offer', 'Online payment available'] },
@@ -121,6 +173,16 @@ export const CHEF_ORDERS: ChefOrder[] = [
   { id: '3', name: 'Buffalo Burgers', category: 'Dinner', price: 75, rating: 2.5, numberOfRating: '(15 Reviews)', deliveryMode: 'Pick Up' },
   { id: '4', name: 'Bullseye Burgers', category: 'Lunch', price: 94, rating: 4.9, numberOfRating: '(13 Reviews)', deliveryMode: 'Drop Off' },
 ]
+
+export const RUNNING: RunningOrder[] = Array.from({ length: 20 }, (_, index) => {
+  const base = CHEF_ORDERS[index % CHEF_ORDERS.length]
+  return {
+    orderId: String(240000 + index),
+    class: base.category.toUpperCase(),
+    title: base.name,
+    price: base.price,
+  }
+})
 
 export const FOODS: Food[] = RAW_FOODS.map((food) => ({
   ...food,

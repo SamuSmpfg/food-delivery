@@ -12,7 +12,7 @@ const icons: Record<string, (props: IconProps) => ReactNode> = {
     FoodList: (props) => <Octicons name="three-bars" size={30} {...props} />,
     AddNew: (props) => <Feather name="plus" size={30} style={styles.addNew} />,
     Notifications: (props) => <Feather name="bell" size={30} {...props} />,
-    Profile: (props) => <Feather name="user" size={30} {...props} />,
+    '(profile)': (props) => <Feather name="user" size={30} {...props} />,
 };
 
 const TabBar = ({ state, descriptors }: TabBarProps) => {
