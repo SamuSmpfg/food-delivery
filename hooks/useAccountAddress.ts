@@ -41,11 +41,9 @@ export const useAccountAddress = () => {
           headers: { Authorization: `Bearer ${token}` },
         })
         const data = await res.json()
-        console.log('address response', res.status, data)
 
         if (!cancelled) setAddress(formatLocation(data.location ?? data))
       } catch (e) {
-        console.log('address error', e)
       } finally {
         if (!cancelled) setLoading(false)
       }

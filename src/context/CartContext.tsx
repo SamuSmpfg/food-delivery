@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react'
 import * as Location from 'expo-location'
-import { RESTAURANTS } from '../data/mockData'
 import useOrders from '../../hooks/useOrders'
 
 export type CartItem = {
   key: string
   id: string
+  restaurantId: string
   name: string
   restaurant: string
   unitPrice: number
@@ -24,6 +24,7 @@ export type Order = {
 
 type AddPayload = {
   id: string
+  restaurantId?: string
   name: string
   restaurant?: string
   price: number | string
@@ -42,7 +43,7 @@ type CartContextValue = {
   changeQuantity: (key: string, delta: number) => void
   removeItem: (key: string) => void
   clear: () => void
-  placeOrder: () => void
+  placeOrder: (etaMinutes?: number) => void
   completeOrder: () => void
 }
 
@@ -51,14 +52,6 @@ const CartContext = createContext<CartContextValue | null>(null)
 const formatAddress = (place: Location.LocationGeocodedAddress) => {
   const street = [place.street ?? place.name, place.streetNumber].filter(Boolean).join(' ')
   return [street, place.district, place.city, place.region].filter(Boolean).join(', ')
-}
-
-const getEtaMinutes = (orderItems: CartItem[]) => {
-  const names = Array.from(new Set(orderItems.map((item) => item.restaurant).filter(Boolean)))
-  const times = names
-    .map((name) => parseInt(RESTAURANTS.find((restaurant) => restaurant.name === name)?.time ?? '', 10))
-    .filter((value) => Number.isFinite(value))
-  return times.length ? Math.max(...times) : 30
 }
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
@@ -98,7 +91,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [])
 
-  const addItem = ({ id, name, restaurant = '', price, size = '14"', quantity = 1 }: AddPayload) => {
+  const addItem = ({
+    id,
+    restaurantId = '',
+    name,
+    restaurant = '',
+    price,
+    size = '',
+    quantity = 1
+  }: AddPayload) => {
     const key = `${id}-${size}`
     setItems((current) => {
       const existing = current.find((item) => item.key === key)
@@ -107,7 +108,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           item.key === key ? { ...item, quantity: item.quantity + quantity } : item
         )
       }
-      return [...current, { key, id, name, restaurant, unitPrice: Number(price), size, quantity }]
+      return [
+        ...current,
+        { key, id, restaurantId, name, restaurant, unitPrice: Number(price), size, quantity }
+      ]
     })
   }
 
@@ -132,7 +136,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     [items]
   )
 
-  const placeOrder = () => {
+  const placeOrder = (etaMinutes?: number) => {
     if (items.length === 0) return
     const orderItems = items.map((item) => ({ ...item }))
     setOrder({
@@ -141,12 +145,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       total,
       address,
       placedAt: Date.now(),
-      etaMinutes: getEtaMinutes(orderItems)
+      etaMinutes: etaMinutes && etaMinutes > 0 ? etaMinutes : 30
     })
     setItems([])
   }
 
-  // Marca o pedido como entregue no backend (roda uma única vez por pedido)
   const completeOrder = useCallback(async () => {
     if (!order || completedOrderId.current === order.id) return
     completedOrderId.current = order.id
@@ -162,7 +165,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     completeOrderRef.current = completeOrder
   }, [completeOrder])
 
-  // Conclui o pedido ao fim do ETA mesmo que o cliente saia da tela de rastreio
   useEffect(() => {
     if (!order) return
     const remainingMs = Math.max(0, order.placedAt + order.etaMinutes * 60000 - Date.now())

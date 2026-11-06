@@ -69,8 +69,7 @@ export const KEYWORDS: Keyword[] = [
   { id: '1', name: 'Burger' },
   { id: '2', name: 'Sandwich' },
   { id: '3', name: 'Pizza' },
-  { id: '4', name: 'Coffee' },
-  { id: '5', name: 'Ice Cream' },
+  { id: '5', name: 'Sushi' }
 ]
 
 export const INGREDIENTS: Ingredient[] = [

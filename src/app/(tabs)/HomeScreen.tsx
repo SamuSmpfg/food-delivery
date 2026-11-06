@@ -8,19 +8,47 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { LinearGradient }  from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { CATEGORIES, FOODS, RESTAURANTS } from '../../data/mockData'
 import { useCart } from '../../context/CartContext'
 import { useUser } from '@clerk/clerk-expo';
 import { useAccountAddress } from '../../../hooks/useAccountAddress';
 import useBackHandler from '../../../hooks/useBackHandler'
+import { useRestaurants } from '../../../hooks/useRestaurants'
+import { useDishes } from '../../../hooks/useDishes'
 import { useAddresses } from '../../lib/addressStore'
 import { useSelectedAddressId } from '../../lib/selectedAddressStore'
+
+const ACCENTS: Record<string, string> = {
+  á: 'a', à: 'a', â: 'a', ã: 'a', ä: 'a',
+  é: 'e', è: 'e', ê: 'e',
+  í: 'i', ì: 'i', î: 'i',
+  ó: 'o', ò: 'o', ô: 'o', õ: 'o',
+  ú: 'u', ù: 'u', û: 'u',
+  ç: 'c',
+}
+
+const normalize = (value: unknown): string =>
+  String(value ?? '')
+    .toLowerCase()
+    .trim()
+    .replace(/[àáâãäèéêìíîòóôõùúûç]/g, (c) => ACCENTS[c] ?? c)
+
+const getId = (value: any): string =>
+  String(value && typeof value === 'object' && value._id ? value._id : value)
+
+const toList = (value: any): string[] =>
+  Array.isArray(value) ? value.map((item) => String(item)) : value ? [String(value)] : []
+
+const ALL_CATEGORY = 'All'
 
 const HomeScreen = () => {
   const router = useRouter()
   const { count } = useCart()
   const { user } = useUser();
   const { address, loading } = useAccountAddress();
+  const { restaurants: restaurantsData, loading: loadingRestaurants, error: restaurantsError } = useRestaurants()
+  const restaurants = restaurantsData ?? []
+  const dishesData = useDishes()
+  const dishes = Array.isArray(dishesData) ? dishesData : []
 
   const addresses = useAddresses();
   const selectedAddressId = useSelectedAddressId();
@@ -34,7 +62,7 @@ const HomeScreen = () => {
 
   const firstName = user?.firstName ?? '';
 
-  const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0].id);
+  const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORY);
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
@@ -45,24 +73,53 @@ const HomeScreen = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const selectedCategoryName = CATEGORIES.find((category) => category.id === selectedCategory)?.name ?? 'All'
+  const categories = useMemo(() => {
+    const seen = new Set<string>([normalize(ALL_CATEGORY)])
+    const names: string[] = [ALL_CATEGORY]
+
+    dishes.forEach((dish) =>
+      toList(dish.category).forEach((name) => {
+        const key = normalize(name)
+        if (!key || seen.has(key)) return
+        seen.add(key)
+        names.push(name)
+      })
+    )
+
+    return names
+  }, [dishesData])
+
+  const activeCategory = categories.includes(selectedCategory) ? selectedCategory : ALL_CATEGORY
 
   const visibleRestaurants = useMemo(() => {
-    if (selectedCategoryName === 'All') return RESTAURANTS
-    const restaurantIds = FOODS
-      .filter((food) => food.category === selectedCategoryName)
-      .map((food) => food.restaurantId)
-    return RESTAURANTS.filter((restaurant) => restaurantIds.includes(restaurant.id))
-  }, [selectedCategoryName])
+    if (activeCategory === ALL_CATEGORY) return restaurants
 
-  const getRestaurantCategories = (restaurantId: string) =>
-    Array.from(
-      new Set(
-        FOODS
-          .filter((food) => food.restaurantId === restaurantId)
-          .map((food) => food.category)
-      )
-    ).join(' - ')
+    const target = normalize(activeCategory)
+    const restaurantIds = new Set<string>()
+
+    dishes.forEach((dish) => {
+      if (toList(dish.category).some((name) => normalize(name) === target)) {
+        restaurantIds.add(getId(dish.restaurantId))
+      }
+    })
+
+    return restaurants.filter((restaurant: any) => {
+      if (restaurantIds.has(getId(restaurant._id))) return true
+      return toList(restaurant.category).some((name) => normalize(name) === target)
+    })
+  }, [activeCategory, restaurantsData, dishesData])
+
+  const getMatchedCategory = (restaurantId: string): string => {
+    if (activeCategory === ALL_CATEGORY) return ''
+    const target = normalize(activeCategory)
+    for (let i = 0; i < dishes.length; i++) {
+      const dish = dishes[i]
+      if (getId(dish.restaurantId) !== getId(restaurantId)) continue
+      const matched = toList(dish.category).find((name) => normalize(name) === target)
+      if (matched) return matched
+    }
+    return ''
+  }
 
   return (
     <ScrollView
@@ -135,8 +192,8 @@ const HomeScreen = () => {
         </View>
 
         <FlatList
-          data={CATEGORIES}
-          keyExtractor={(item) => item.id}
+          data={categories}
+          keyExtractor={(item) => item}
           horizontal
           showsHorizontalScrollIndicator={false}
           directionalLockEnabled
@@ -144,19 +201,19 @@ const HomeScreen = () => {
           style={styles.categoriesFlatList}
           contentContainerStyle={styles.categoriesList}
           renderItem={({ item }) => {
-            const isSelected = item.id === selectedCategory
+            const isSelected = item === activeCategory
 
             return (
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => setSelectedCategory(item.id)}
+                onPress={() => setSelectedCategory(item)}
                 style={[
                   styles.categoryChip,
                   isSelected ? styles.categoryChipSelected : styles.categoryChipDefault
                 ]}
               >
                 <View style={styles.categoryImage} />
-                <Text style={styles.categoryText}>{item.name}</Text>
+                <Text style={styles.categoryText}>{item}</Text>
               </TouchableOpacity>
             )
           }}
@@ -165,7 +222,7 @@ const HomeScreen = () => {
         <View style={styles.content}>
           <View style={styles.categoriesHeader}>
             <Text style={styles.allCategoriesText}>
-              {selectedCategoryName === 'All' ? 'Open Restaurants' : `${selectedCategoryName} Restaurants`}
+              {activeCategory === ALL_CATEGORY ? 'Open Restaurants' : `${activeCategory} Restaurants`}
             </Text>
             <View style={styles.seeAllContent}>
               <TouchableOpacity style={styles.seeAllTouchableOpacity}>
@@ -177,17 +234,22 @@ const HomeScreen = () => {
         </View>
 
         <View style={styles.openRestaurantsContainer}>
+          {loadingRestaurants && <Text style={styles.restaurantPlates}>Loading...</Text>}
+          {restaurantsError && <Text style={styles.restaurantPlates}>{restaurantsError}</Text>}
           {visibleRestaurants.map((restaurant) => (
             <TouchableOpacity
-              key={restaurant.id}
+              key={restaurant._id}
               activeOpacity={0.9}
               onPress={() =>
-                router.navigate({ pathname: '/(tabs)/RestaurantView', params: { id: restaurant.id } })
+                router.navigate({
+                  pathname: '/(tabs)/RestaurantView',
+                  params: { id: restaurant._id, category: getMatchedCategory(restaurant._id) }
+                })
               }
             >
               <View style={styles.restaurantsImage}/>
               <Text numberOfLines={1} ellipsizeMode="tail" style={styles.restaurantName}>{restaurant.name}</Text>
-              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.restaurantPlates}>{getRestaurantCategories(restaurant.id)}</Text>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.restaurantPlates}>{restaurant.specialty.join(' - ')}</Text>
               <View style={styles.restaurantsExtras}>
                 <View style={styles.restaurantIconAndTextContainer}>
                   <FontAwesome6 name="star" size={30} color="#FF7622" />
@@ -196,16 +258,21 @@ const HomeScreen = () => {
 
                 <View style={styles.restaurantIconAndTextContainer}>
                   <Feather name="truck" size={30} color="#FF7622" />
-                  <Text style={styles.restaurantExtrasText}>{restaurant.delivery}</Text>
+                  <Text style={styles.restaurantExtrasText}>
+                    {restaurant.deliveryFee === 0 ? 'Free' : `R$ ${restaurant.deliveryFee.toFixed(2)}`}
+                  </Text>
                 </View>
 
                 <View style={styles.restaurantIconAndTextContainer}>
                   <AntDesign name="clock-circle" size={30} color="#FF7622" />
-                  <Text style={styles.restaurantExtrasText}>{restaurant.time}</Text>
+                  <Text style={styles.restaurantExtrasText}>{restaurant.averageDeliveryTime} min</Text>
                 </View>
               </View>
             </TouchableOpacity>
           ))}
+          {!loadingRestaurants && !restaurantsError && visibleRestaurants.length === 0 && (
+            <Text style={styles.restaurantPlates}>No restaurants in this category.</Text>
+          )}
         </View>
 
         <Modal
@@ -286,17 +353,17 @@ const styles = StyleSheet.create({
     fontSize: 14
   },
   textHeaderContainer: {
-    flex: 1,            // ocupa o espaço entre o menu e a sacola
+    flex: 1,
     marginHorizontal: 12
   },
   locationUserPopUp: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',  // o botão só ocupa o tamanho do conteúdo
+    alignSelf: 'flex-start',
     maxWidth: '100%'
   },
   locationUser: {
-    flexShrink: 1,      // permite o texto encolher e cortar com "..."
+    flexShrink: 1,
     color: '#676767',
     fontSize: 12,
     fontFamily: 'Sen_400Regular'
@@ -450,7 +517,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Sen_400Regular",
     color: '#A0A5BA',
-    marginBottom: 10
+    marginBottom: 24  
   },
   restaurantsExtras: {
     flexDirection: 'row',

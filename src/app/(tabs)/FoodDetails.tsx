@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
@@ -7,34 +7,47 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
 import Feather from '@expo/vector-icons/Feather'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6'
-import { FOODS, RESTAURANTS } from '../../data/mockData'
 import { useCart } from '../../context/CartContext'
+import { useRestaurants } from '../../../hooks/useRestaurants'
+import { useDishesState } from '../../../hooks/useDishes'
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name']
 
-const SIZES = [10, 14, 16]
+const INGREDIENT_ICONS: Record<string, IconName> = {
+  Salt: 'shaker-outline',
+  Chicken: 'food-drumstick-outline',
+  Onion: 'leaf',
+  Basil: 'leaf',
+  Fish: 'fish',
+  Chili: 'chili-mild-outline',
+  Mozzarella: 'cheese',
+  Egg: 'egg-outline',
+  Tomato: 'food-apple-outline'
+}
 
-const INGREDIENTS: { id: string; icon: IconName }[] = [
-  { id: '1', icon: 'shaker-outline' },
-  { id: '2', icon: 'food-drumstick-outline' },
-  { id: '3', icon: 'leaf' },
-  { id: '4', icon: 'fish' },
-  { id: '5', icon: 'chili-mild-outline' },
-]
+const DEFAULT_INGREDIENT_ICON: IconName = 'food-variant'
+
+const formatPrice = (value: number) => `R$ ${value.toFixed(2)}`
+
+const getId = (value: any): string =>
+  String(value && typeof value === 'object' && value._id ? value._id : value)
 
 const FoodDetails = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const params = useLocalSearchParams<{ id: string | string[] }>()
+  const id = Array.isArray(params.id) ? params.id[0] : params.id
   const { addItem } = useCart()
+  const { restaurants, loading: loadingRestaurants } = useRestaurants()
+  const { dishes, loading: loadingDishes } = useDishesState()
 
   const [favorite, setFavorite] = useState(false)
-  const [size, setSize] = useState(14)
+  const [sizeIndex, setSizeIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
 
-  const food = FOODS.find((item) => item.id === id)
+  const food = dishes.find((item) => getId(item._id) === getId(id))
   const restaurant = food
-    ? RESTAURANTS.find((item) => item.id === food.restaurantId)
+    ? restaurants.find((item) => getId(item._id) === getId(food.restaurantId))
     : undefined
 
   if (!food) {
@@ -43,20 +56,26 @@ const FoodDetails = () => {
         <TouchableOpacity style={styles.circleButton} onPress={() => router.back()}>
           <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
         </TouchableOpacity>
-        <Text style={styles.notFoundText}>Dish not found</Text>
+        <Text style={styles.notFoundText}>
+          {loadingDishes || loadingRestaurants ? 'Loading...' : 'Dish not found'}
+        </Text>
       </View>
     )
   }
 
-  const total = food.price * quantity
+  const selectedSize = food.sizes[sizeIndex] ?? food.sizes[0]
+  const unitPrice = selectedSize?.price ?? 0
+  const total = unitPrice * quantity
+  const restaurantName = restaurant?.name ?? ''
 
   const handleAddToCart = () => {
     addItem({
-      id: food.id,
+      id: food._id,
+      restaurantId: getId(food.restaurantId),
       name: food.name,
-      restaurant: food.restaurant,
-      price: food.price,
-      size: `${size}"`,
+      restaurant: restaurantName,
+      price: unitPrice,
+      size: selectedSize?.label,
       quantity
     })
     router.navigate('/(tabs)/Cart')
@@ -69,6 +88,14 @@ const FoodDetails = () => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.hero}>
+          {food.image ? (
+            <Image
+              source={{ uri: food.image }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : null}
+
           <View style={[styles.heroButtons, { top: insets.top + 16 }]}>
             <TouchableOpacity style={styles.circleButton} onPress={() => router.back()}>
               <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
@@ -91,21 +118,27 @@ const FoodDetails = () => {
 
           <View style={styles.restaurantRow}>
             <View style={styles.restaurantAvatar} />
-            <Text style={styles.restaurantName}>{food.restaurant}</Text>
+            <Text style={styles.restaurantName}>{restaurantName}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <View style={styles.infoItem}>
               <FontAwesome6 name="star" size={18} color="#FF7622" />
-              <Text style={styles.infoBold}>{restaurant?.rating ?? '-'}</Text>
+              <Text style={styles.infoBold}>{food.rating ?? restaurant?.rating ?? '-'}</Text>
             </View>
             <View style={styles.infoItem}>
               <Feather name="truck" size={18} color="#FF7622" />
-              <Text style={styles.infoText}>{restaurant?.delivery ?? '-'}</Text>
+              <Text style={styles.infoText}>
+                {restaurant
+                  ? restaurant.deliveryFee === 0
+                    ? 'Free'
+                    : formatPrice(restaurant.deliveryFee)
+                  : '-'}
+              </Text>
             </View>
             <View style={styles.infoItem}>
               <Feather name="clock" size={18} color="#FF7622" />
-              <Text style={styles.infoText}>{restaurant?.time ?? '-'}</Text>
+              <Text style={styles.infoText}>{food.avgPrepMinutes} min</Text>
             </View>
           </View>
 
@@ -113,16 +146,16 @@ const FoodDetails = () => {
 
           <View style={styles.sizeRow}>
             <Text style={styles.sizeLabel}>SIZE:</Text>
-            {SIZES.map((option) => {
-              const selected = option === size
+            {food.sizes.map((option, index) => {
+              const selected = index === sizeIndex
               return (
                 <TouchableOpacity
-                  key={option}
+                  key={`${option.label}-${index}`}
                   style={[styles.sizeChip, selected && styles.sizeChipSelected]}
-                  onPress={() => setSize(option)}
+                  onPress={() => setSizeIndex(index)}
                 >
                   <Text style={[styles.sizeChipText, selected && styles.sizeChipTextSelected]}>
-                    {option}"
+                    {option.label}
                   </Text>
                 </TouchableOpacity>
               )
@@ -131,9 +164,18 @@ const FoodDetails = () => {
 
           <Text style={styles.ingredientsLabel}>INGREDIENTS</Text>
           <View style={styles.ingredientsRow}>
-            {INGREDIENTS.map((ingredient) => (
-              <View key={ingredient.id} style={styles.ingredientCircle}>
-                <MaterialCommunityIcons name={ingredient.icon} size={26} color="#FF7622" />
+            {food.ingredients.map((ingredient, index) => (
+              <View key={`${ingredient.name}-${index}`} style={styles.ingredientItem}>
+                <View style={styles.ingredientCircle}>
+                  <MaterialCommunityIcons
+                    name={INGREDIENT_ICONS[ingredient.name] ?? DEFAULT_INGREDIENT_ICON}
+                    size={26}
+                    color="#FF7622"
+                  />
+                </View>
+                <Text numberOfLines={1} style={styles.ingredientName}>
+                  {ingredient.name}
+                </Text>
               </View>
             ))}
           </View>
@@ -142,7 +184,7 @@ const FoodDetails = () => {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.footerTop}>
-          <Text style={styles.price}>${total}</Text>
+          <Text style={styles.price}>{formatPrice(total)}</Text>
 
           <View style={styles.stepper}>
             <TouchableOpacity
@@ -181,7 +223,8 @@ const styles = StyleSheet.create({
     height: 320,
     backgroundColor: '#98A8B8',
     borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30
+    borderBottomRightRadius: 30,
+    overflow: 'hidden'
   },
   heroButtons: {
     position: 'absolute',
@@ -255,6 +298,7 @@ const styles = StyleSheet.create({
   sizeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 12,
     marginTop: 24
   },
@@ -265,8 +309,9 @@ const styles = StyleSheet.create({
     marginRight: 4
   },
   sizeChip: {
-    width: 48,
+    minWidth: 48,
     height: 48,
+    paddingHorizontal: 16,
     borderRadius: 100,
     backgroundColor: '#F0F5FA',
     alignItems: 'center',
@@ -291,8 +336,13 @@ const styles = StyleSheet.create({
   },
   ingredientsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 14,
     marginTop: 12
+  },
+  ingredientItem: {
+    alignItems: 'center',
+    width: 64
   },
   ingredientCircle: {
     width: 50,
@@ -301,6 +351,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFEBE4',
     alignItems: 'center',
     justifyContent: 'center'
+  },
+  ingredientName: {
+    marginTop: 4,
+    fontFamily: 'Sen_400Regular',
+    fontSize: 11,
+    color: '#646982',
+    textAlign: 'center'
   },
   footer: {
     position: 'absolute',

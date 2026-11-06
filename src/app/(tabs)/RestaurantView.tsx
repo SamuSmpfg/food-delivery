@@ -1,47 +1,93 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useMemo, useState } from 'react'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import Feather from '@expo/vector-icons/Feather'
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6'
-import { FOODS, RESTAURANTS, chunk } from '../../data/mockData'
 import FilterModal, { RestaurantFilters } from '../../components/FilterModal'
 import { useCart } from '../../context/CartContext'
 import { hasActiveFilters, matchesFoodFilters } from '../../lib/filters'
+import { useRestaurants } from '../../../hooks/useRestaurants'
+import { useDishesState, ApiDish } from '../../../hooks/useDishes'
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = []
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size))
+  return rows
+}
+
+const formatPrice = (value: number) => `R$ ${value.toFixed(2)}`
+
+const getId = (value: any): string =>
+  String(value && typeof value === 'object' && value._id ? value._id : value)
+
+const toList = (value: any): string[] =>
+  Array.isArray(value) ? value.map((item) => String(item)) : value ? [String(value)] : []
+
+type FilterFood = Parameters<typeof matchesFoodFilters>[0]
+type FilterRestaurant = Parameters<typeof matchesFoodFilters>[1]
 
 const RestaurantView = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const params = useLocalSearchParams<{ id: string | string[]; category?: string | string[] }>()
+  const id = Array.isArray(params.id) ? params.id[0] : params.id
+  const initialCategory = Array.isArray(params.category) ? params.category[0] : params.category
   const { addItem } = useCart()
+  const { restaurants, loading: loadingRestaurants } = useRestaurants()
+  const { dishes, loading: loadingDishes } = useDishesState()
 
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory || null)
   const [filterVisible, setFilterVisible] = useState(false)
   const [filters, setFilters] = useState<RestaurantFilters | null>(null)
   const filtersActive = hasActiveFilters(filters)
 
-  const restaurant = RESTAURANTS.find((item) => item.id === id)
+  const restaurant = restaurants.find((item) => getId(item._id) === getId(id))
 
-  const restaurantFoods = useMemo(
-    () =>
-      FOODS.filter(
-        (food) =>
-          food.restaurantId === id &&
-          matchesFoodFilters(food, restaurant, filters, { includeRestaurantCriteria: false })
-      ),
-    [id, restaurant, filters]
-  )
+  const restaurantFoods = useMemo(() => {
+    if (!restaurant) return [] as ApiDish[]
+
+    const filterRestaurant = {
+      id: restaurant._id,
+      name: restaurant.name,
+      description: restaurant.description,
+      rating: restaurant.rating,
+      delivery: restaurant.deliveryFee === 0 ? 'Free' : formatPrice(restaurant.deliveryFee),
+      time: `${restaurant.averageDeliveryTime} min`
+    } as unknown as FilterRestaurant
+
+    return dishes.filter(
+      (dish) =>
+        getId(dish.restaurantId) === getId(restaurant._id) &&
+        matchesFoodFilters(
+          {
+            id: dish._id,
+            name: dish.name,
+            restaurantId: getId(dish.restaurantId),
+            restaurant: restaurant.name,
+            category: dish.category,
+            price: dish.sizes?.[0]?.price ?? 0,
+            description: dish.description
+          } as unknown as FilterFood,
+          filterRestaurant,
+          filters,
+          { includeRestaurantCriteria: false }
+        )
+    )
+  }, [dishes, restaurant, filters])
 
   const categories = useMemo(
-    () => Array.from(new Set(restaurantFoods.map((food) => food.category))),
+    () => Array.from(new Set(restaurantFoods.flatMap((food) => toList(food.category)))),
     [restaurantFoods]
   )
 
   const activeCategory =
     selectedCategory && categories.includes(selectedCategory) ? selectedCategory : categories[0]
 
-  const visibleFoods = restaurantFoods.filter((food) => food.category === activeCategory)
+  const visibleFoods = restaurantFoods.filter((food) =>
+    toList(food.category).includes(activeCategory)
+  )
 
   if (!restaurant) {
     return (
@@ -49,7 +95,9 @@ const RestaurantView = () => {
         <TouchableOpacity style={styles.circleButton} onPress={() => router.back()}>
           <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
         </TouchableOpacity>
-        <Text style={styles.notFoundText}>Restaurant not found</Text>
+        <Text style={styles.notFoundText}>
+          {loadingRestaurants ? 'Loading...' : 'Restaurant not found'}
+        </Text>
       </View>
     )
   }
@@ -62,6 +110,14 @@ const RestaurantView = () => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.hero}>
+          {restaurant.image ? (
+            <Image
+              source={{ uri: restaurant.image }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : null}
+
           <View style={[styles.heroButtons, { top: insets.top + 16 }]}>
             <TouchableOpacity style={styles.circleButton} onPress={() => router.back()}>
               <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
@@ -98,11 +154,13 @@ const RestaurantView = () => {
             </View>
             <View style={styles.infoItem}>
               <Feather name="truck" size={18} color="#FF7622" />
-              <Text style={styles.infoText}>{restaurant.delivery}</Text>
+              <Text style={styles.infoText}>
+                {restaurant.deliveryFee === 0 ? 'Free' : formatPrice(restaurant.deliveryFee)}
+              </Text>
             </View>
             <View style={styles.infoItem}>
               <Feather name="clock" size={18} color="#FF7622" />
-              <Text style={styles.infoText}>{restaurant.time}</Text>
+              <Text style={styles.infoText}>{restaurant.averageDeliveryTime} min</Text>
             </View>
           </View>
 
@@ -133,9 +191,11 @@ const RestaurantView = () => {
 
           {restaurantFoods.length === 0 ? (
             <Text style={styles.emptyText}>
-              {filtersActive
-                ? 'No dishes match your filters, try changing them :('
-                : 'No dishes available'}
+              {loadingDishes
+                ? 'Loading...'
+                : filtersActive
+                  ? 'No dishes match your filters, try changing them :('
+                  : 'No dishes available'}
             </Text>
           ) : (
             <>
@@ -146,40 +206,59 @@ const RestaurantView = () => {
               <View style={styles.foodGrid}>
                 {chunk(visibleFoods, 2).map((row, rowIndex) => (
                   <View key={rowIndex} style={styles.foodRow}>
-                    {row.map((food) => (
-                      <TouchableOpacity
-                        key={food.id}
-                        style={styles.foodCard}
-                        activeOpacity={0.9}
-                        onPress={() =>
-                          router.navigate({ pathname: '/(tabs)/FoodDetails', params: { id: food.id } })
-                        }
-                      >
-                        <View style={styles.foodCardImage} />
-                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardName}>
-                          {food.name}
-                        </Text>
-                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardRestaurant}>
-                          {food.restaurant}
-                        </Text>
-                        <View style={styles.foodCardFooter}>
-                          <Text style={styles.foodCardPrice}>${food.price}</Text>
-                          <TouchableOpacity
-                            style={styles.addButton}
-                            onPress={() =>
-                              addItem({
-                                id: food.id,
-                                name: food.name,
-                                restaurant: food.restaurant,
-                                price: food.price
-                              })
-                            }
+                    {row.map((food) => {
+                      const basePrice = food.sizes?.[0]?.price ?? 0
+                      return (
+                        <TouchableOpacity
+                          key={food._id}
+                          style={styles.foodCard}
+                          activeOpacity={0.9}
+                          onPress={() =>
+                            router.navigate({
+                              pathname: '/(tabs)/FoodDetails',
+                              params: { id: food._id }
+                            })
+                          }
+                        >
+                          {food.image ? (
+                            <Image
+                              source={{ uri: food.image }}
+                              style={styles.foodCardImage}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View style={styles.foodCardImage} />
+                          )}
+                          <Text numberOfLines={1} ellipsizeMode="tail" style={styles.foodCardName}>
+                            {food.name}
+                          </Text>
+                          <Text
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                            style={styles.foodCardRestaurant}
                           >
-                            <Feather name="plus" size={20} color="white" />
-                          </TouchableOpacity>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
+                            {restaurant.name}
+                          </Text>
+                          <View style={styles.foodCardFooter}>
+                            <Text style={styles.foodCardPrice}>{formatPrice(basePrice)}</Text>
+                            <TouchableOpacity
+                              style={styles.addButton}
+                              onPress={() =>
+                                addItem({
+                                  id: food._id,
+                                  restaurantId: getId(restaurant._id),
+                                  name: food.name,
+                                  restaurant: restaurant.name,
+                                  price: basePrice
+                                })
+                              }
+                            >
+                              <Feather name="plus" size={20} color="white" />
+                            </TouchableOpacity>
+                          </View>
+                        </TouchableOpacity>
+                      )
+                    })}
                     {row.length === 1 && <View style={styles.foodCardSpacer} />}
                   </View>
                 ))}
@@ -210,7 +289,8 @@ const styles = StyleSheet.create({
     height: 320,
     backgroundColor: '#98A8B8',
     borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30
+    borderBottomRightRadius: 30,
+    overflow: 'hidden'
   },
   heroButtons: {
     position: 'absolute',

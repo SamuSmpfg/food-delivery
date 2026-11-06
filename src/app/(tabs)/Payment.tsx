@@ -7,7 +7,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Feather from '@expo/vector-icons/Feather'
-import { useCart } from '../../context/CartContext'
+import { useCart, CartItem } from '../../context/CartContext'
 import { postJson } from '../../lib/api'
 import { useSavedCards } from '../../lib/cards'
 import useCreateOrder from '../../../hooks/useCreateOrder'
@@ -44,6 +44,8 @@ const CARD_TITLES: Record<string, string> = {
   visa: 'Visa',
   mastercard: 'Master Card'
 }
+
+const formatMoney = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`
 
 const MethodLogo = ({ method }: { method: Method }) => {
   if (method === 'cash') {
@@ -109,7 +111,7 @@ const PanelIcon = ({ method }: { method: Method }) => {
 const Payment = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { items, count, total, placeOrder } = useCart()
+  const { items, total, placeOrder } = useCart()
   const { createOrder } = useCreateOrder()
   const savedCards = useSavedCards()
 
@@ -127,15 +129,35 @@ const Payment = () => {
 
   const finish = async (label: string) => {
     const paid = total
-    const restaurantName = items.find((item) => item.restaurant)?.restaurant || 'Restaurant'
 
-    await createOrder({
-      restaurantName,
-      total: Math.round(paid * 100) / 100,
-      itemsCount: count
+    if (items.some((item) => !item.restaurantId)) {
+      throw new Error('Remove the items from the cart and add them again')
+    }
+
+    const groups = new Map<string, CartItem[]>()
+    items.forEach((item) => {
+      const list = groups.get(item.restaurantId) ?? []
+      list.push(item)
+      groups.set(item.restaurantId, list)
     })
 
-    placeOrder()
+    let eta = 0
+    const entries = Array.from(groups.entries())
+
+    for (let i = 0; i < entries.length; i++) {
+      const [restaurantId, group] = entries[i]
+      const created = await createOrder({
+        restaurantId,
+        items: group.map((item) => ({
+          dishId: item.id,
+          size: item.size || undefined,
+          quantity: item.quantity
+        }))
+      })
+      eta = Math.max(eta, Number(created?.estimatedMinutes) || 0)
+    }
+
+    placeOrder(eta)
     router.replace({
       pathname: '/(tabs)/PaymentSuccess',
       params: { method: label, total: String(paid) }
@@ -326,7 +348,7 @@ const Payment = () => {
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>TOTAL:</Text>
-          <Text style={styles.totalValue}>${total}</Text>
+          <Text style={styles.totalValue}>{formatMoney(total)}</Text>
         </View>
 
         <TouchableOpacity
