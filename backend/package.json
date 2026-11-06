@@ -1,0 +1,20 @@
+{
+  "name": "backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "seed:pt": "node src/seedPt.js"
+  },
+  "dependencies": {
+    "@clerk/express": "^2.1.77",
+    "depd": "^2.0.0",
+    "dotenv": "^18.0.9",
+    "express": "^5.2.1",
+    "mongoose": "^9.11.1",
+    "nodemailer": "^10.0.16",
+    "stripe": "^23.0.0",
+    "svix": "^2.9.1"
+  }
+}
