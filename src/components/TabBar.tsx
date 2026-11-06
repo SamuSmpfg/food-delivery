@@ -1,23 +1,42 @@
 import { ComponentProps, ReactNode } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { Feather, Octicons } from '@expo/vector-icons';
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 type IconProps = { color: string };
 
+const hiddenOnTabs = ['AddNew'];
+const hiddenOnScreens = ['ChefFoodDetails', 'SucessfulWithdraw', 'Reviews', 'Profile'];
+
 const icons: Record<string, (props: IconProps) => ReactNode> = {
     '(home)': (props) => <Feather name="grid" size={30} {...props} />,
     FoodList: (props) => <Octicons name="three-bars" size={30} {...props} />,
-    AddNew: (props) => <Feather name="plus" size={30} style={styles.addNew} />,
+    AddNew: () => (
+        <View style={styles.addNew}>
+            <Feather name="plus" size={30} color="#FF7622" />
+        </View>
+    ),
     Notifications: (props) => <Feather name="bell" size={30} {...props} />,
     '(profile)': (props) => <Feather name="user" size={30} {...props} />,
 };
 
 const TabBar = ({ state, descriptors }: TabBarProps) => {
+    const focusedRoute = state.routes[state.index];
+    const nestedRouteName = getFocusedRouteNameFromRoute(focusedRoute);
+
+    if (hiddenOnTabs.includes(focusedRoute.name)) {
+        return null;
+    }
+
+    if (nestedRouteName && hiddenOnScreens.includes(nestedRouteName)) {
+        return null;
+    }
+
     return (
-        <View style={styles.tabBar}>
+        <View style={[styles.tabBar, { paddingBottom: 16 }]}>
             {state.routes.map((route, index) => {
                 if (['_sitemap', '+not-found'].includes(route.name)) return null;
 
@@ -54,13 +73,16 @@ const TabBar = ({ state, descriptors }: TabBarProps) => {
 const styles = StyleSheet.create({
     tabBar: {
         position: 'absolute',
+        left: 0,
+        right: 0,
         bottom: 0,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: 'white',
-        paddingVertical: 16,
+        paddingTop: 16,
         borderRadius: 36,
+        shadowColor: '#000000',
         shadowOffset: {
             width: 0,
             height: 20,
@@ -73,7 +95,7 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        height: 64,
+        height: 70,
     },
     addNew: {
         backgroundColor: '#FFF1F2',
@@ -82,8 +104,8 @@ const styles = StyleSheet.create({
         borderRadius: 100,
         borderColor: '#FF7622',
         borderWidth: 1,
-        color: '#FF7622',
-        padding: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
 

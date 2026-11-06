@@ -135,8 +135,17 @@ export const MESSAGES: Messages[] = [
 ]
  
 export const REVIEWS: Reviews[] = [
-  {id: '1', date: '2023/10/10', title: 'Great Food and Service', rating: 5, comment: ''},
+  {id: '1', date: '20/12/2020', title: 'Great Food and Service', rating: 5, comment: 'This Food so tasty & delicious. Breakfast so fast Delivered in my place. Chef is very friendly. I’m really like chef for Home Food Order. Thanks.'},
 
+  {id: '2', date: '20/12/2020', title: 'Awesome and Nice', rating: 4, comment: 'This Food so tasty & delicious. Breakfast so fast Delivered in my place.'},
+
+    {id: '3', date: '20/12/2020', title: 'Awesome and Nice', rating: 3, comment: 'This Food so tasty & delicious.'},
+
+    {id: '4', date: '20/12/2020', title: 'Awesome and Nice', rating: 2, comment: 'This Food so tasty & delicious. Breakfast so fast Delivered in my place.'},
+
+    {id: '5', date: '20/12/2020', title: 'Awesome and Nice', rating: 1, comment: 'This Food so tasty & delicious. Breakfast so fast Delivered in my place.'},
+
+    {id: '6', date: '20/12/2020', title: 'Awesome and Nice', rating: 0, comment: 'This Food so tasty & delicious. Breakfast so fast Delivered in my place.'},
 ]
 
 export const RESTAURANTS: Restaurant[] = [

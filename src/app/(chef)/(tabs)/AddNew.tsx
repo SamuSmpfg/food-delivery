@@ -123,7 +123,6 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
     flex: 1,
-    paddingBottom: 100
   },
   headerContainer: {
     flexDirection: 'row',
@@ -232,7 +231,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 32
+    marginTop: 32,
+    marginBottom: 64
   },
   saveText: {
     color: '#fff',
