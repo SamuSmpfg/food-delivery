@@ -3,7 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import 'react-native-gesture-handler'
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Alert } from 'react-native'
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFlatList } from '@gorhom/bottom-sheet'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import LineChart from '@/components/LineChart'
@@ -18,7 +18,7 @@ import { Order } from '../../../../../hooks/useOrders'
 type ChefHomeProps = {
   order: Order
   onTrack?: () => void
-  onCancel?: () => void
+  onCancel?: (orderId?: string | number) => void
 }
 
 export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
@@ -27,6 +27,7 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const CHART_WIDTH = SCREEN_WIDTH - 82
   const selectedValue = useSharedValue(0)
+
   const [runningOrders, setRunningOrders] = useState(RUNNING)
 
   const font = useFont(
@@ -41,10 +42,26 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
     sheetRef.current?.present()
   }, [])
 
-  const handleCancelOrder = useCallback(
+  const handleCancelPress = useCallback(
     (orderId: string | number) => {
-      setRunningOrders((current) => current.filter((item) => item.orderId !== orderId))
-      onCancel?.()
+      Alert.alert(
+        'Cancel order?',
+        `Are you sure you want to cancel order ${orderId}? This action cannot be undone.`,
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, cancel',
+            style: 'destructive',
+            onPress: () => {
+              setRunningOrders((prev) =>
+                prev.filter((o) => String(o.orderId) !== String(orderId))
+              )
+              onCancel?.(orderId)
+            },
+          },
+        ],
+        { cancelable: true }
+      )
     },
     [onCancel]
   )
@@ -113,7 +130,9 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
                 <Feather name="chevron-down" size={12} color="#181C2E" />
               </View>
             </TouchableOpacity>
+            <TouchableOpacity>
             <Text style={styles.seeAllButton}>See Details</Text>
+            </TouchableOpacity>
           </View>
           <AnimatedText font={font} selectedValue={selectedValue} />
           <GestureHandlerRootView style={{ height: CHART_HEIGHT }}>
@@ -179,7 +198,10 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
                   <TouchableOpacity style={styles.doneTouchableOpacity}>
                     <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#fff' }}>Done</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelTouchableOpacity} onPress={() => handleCancelOrder(item.orderId)}>
+                  <TouchableOpacity
+                    style={styles.cancelTouchableOpacity}
+                    onPress={() => handleCancelPress(item.orderId)}
+                  >
                     <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#FF3326' }}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
