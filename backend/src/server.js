@@ -7,6 +7,7 @@ import userRoutes from './routes/user.routes.js'
 import paymentRoutes from './routes/paymentMethods.routes.js'
 import chefInvitationsRoutes from './routes/chefInvitations.routes.js'
 import chefApplicationsRoutes from './routes/chefApplications.routes.js'
+import chefOrders from './routes/chefOrders.routes.js';
 import routes from './routes/index.routes.js'
 
 const app = express()
@@ -20,6 +21,7 @@ app.use('/api/user', userRoutes)
 app.use('/api/payments', paymentRoutes)
 app.use('/api/admin', chefInvitationsRoutes)
 app.use('/api/chef-applications', chefApplicationsRoutes)
+app.use('/api/chef/orders', chefOrders);
 app.use('/api', routes)
 
 app.use((req, res) => {

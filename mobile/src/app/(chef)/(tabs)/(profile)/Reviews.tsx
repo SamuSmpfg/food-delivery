@@ -1,8 +1,8 @@
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import React from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons'
+import { Feather, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { REVIEWS } from '@/data/mockData'
 
 type Props = {}
@@ -30,33 +30,38 @@ const Reviews = (props: Props) => {
   const router = useRouter()
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.goBackTouchableOpacity}
-          onPress={() => router.back()}
-        >
-          <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Reviews</Text>
-      </View>
-
-      <FlatList
-        data={REVIEWS}
-        keyExtractor={(item) => item.id}
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
+        contentContainerStyle={styles.content}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.goBackTouchableOpacity}
+            onPress={() => router.back()}
+          >
+            <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Reviews</Text>
+        </View>
+
+        {REVIEWS.map((item) => (
+          <View key={item.id} style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
             <View style={styles.profileImg} />
             <View style={styles.reviewBox}>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
               <Text style={styles.date}>{item.date}</Text>
+              <TouchableOpacity>
+              <Feather name="more-horizontal" size={24} color="#9C9BA6" />
+              </TouchableOpacity>
+              </View>
               <Text style={styles.reviewTitle}>{item.title}</Text>
               <Stars rating={item.rating} />
               <Text style={styles.comment}>{item.comment}</Text>
             </View>
           </View>
-        )}
-      />
+        ))}
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -64,8 +69,11 @@ const Reviews = (props: Props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
     backgroundColor: '#fff'
+  },
+  content: {
+    paddingHorizontal: 24,
+    paddingBottom: 24
   },
   header: {
     flexDirection: 'row',

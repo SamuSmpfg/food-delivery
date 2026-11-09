@@ -54,7 +54,7 @@ const Profile = (props: Props) => {
       </View>
     </SafeAreaView>
   
-  <View style={[styles.infoContainer, {paddingBottom: 120 }]}>
+  <View style={styles.infoContainer}>
 <View style={styles.personalInfoContainer}>
                 <TouchableOpacity>
                     <View style={styles.infosTouchableOpacity}>
@@ -101,7 +101,7 @@ const Profile = (props: Props) => {
                         </View>
                         <Text style={styles.iconsLabels}>Number of Orders</Text>
                         <View style={styles.detailsArrow}>
-                            <MaterialIcons name="keyboard-arrow-right" size={24} color="#747783" />
+                            <Text style={styles.numberOfOrders}>29K</Text>
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -187,6 +187,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     flex: 1,
     paddingHorizontal: 24,
+    paddingBottom: 30
   },
       personalInfoContainer: {
         backgroundColor: '#F6F8FA',
@@ -218,6 +219,11 @@ const styles = StyleSheet.create({
     },
     detailsArrow: {
         marginLeft: 'auto',
+    },
+    numberOfOrders: {
+        color: '#9C9BA6',
+        fontFamily: 'Sen_700Bold',
+        fontSize: 17
     }
 })
 

@@ -8,13 +8,13 @@ import FontAwesome5 from '@expo/vector-icons/FontAwesome5'
 import { useCart } from '../../context/CartContext'
 import useLocation from '../../../hooks/useLocation'
 import useBackHandler from '../../../hooks/useBackHandler'
-import { RESTAURANTS } from '../../data/mockData'
 
 const SCREEN_HEIGHT = Dimensions.get('window').height
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.7
 const COLLAPSED_HEIGHT = 210
 const MAX_OFFSET = SHEET_HEIGHT - COLLAPSED_HEIGHT
-const STEP_INTERVAL_MS = 2 * 60 * 1000
+const PICKED_UP_AT = 0.4
+const ARRIVING_AT = 0.8
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 
@@ -113,12 +113,7 @@ const TrackingOrder = () => {
     [order]
   )
 
-  const etaMinutes = useMemo(() => {
-    const times = restaurantNames
-      .map((name) => parseInt(RESTAURANTS.find((restaurant) => restaurant.name === name)?.time ?? '', 10))
-      .filter((value) => Number.isFinite(value))
-    return times.length ? Math.max(...times) : 30
-  }, [restaurantNames])
+  const etaMinutes = order?.etaMinutes && order.etaMinutes > 0 ? order.etaMinutes : 30
 
   const detailsOpacity = translateY.interpolate({
     inputRange: [0, MAX_OFFSET * 0.6],
@@ -126,12 +121,18 @@ const TrackingOrder = () => {
     extrapolate: 'clamp'
   })
 
+  const totalMs = etaMinutes * 60000
   const elapsed = order ? now - order.placedAt : 0
-  const delivered = !!order && elapsed >= etaMinutes * 60000
+  const progress = totalMs > 0 ? elapsed / totalMs : 0
+  const delivered = !!order && elapsed >= totalMs
   const stage = delivered
     ? STEPS.length
-    : Math.min(STEPS.length - 1, 1 + Math.floor(elapsed / STEP_INTERVAL_MS))
-  const remaining = Math.max(0, Math.ceil((etaMinutes * 60000 - elapsed) / 60000))
+    : progress >= ARRIVING_AT
+      ? 3
+      : progress >= PICKED_UP_AT
+        ? 2
+        : 1
+  const remaining = Math.max(0, Math.ceil((totalMs - elapsed) / 60000))
 
   useEffect(() => {
     if (delivered) completeOrder()

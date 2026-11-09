@@ -83,13 +83,13 @@ export type Reviews = {
 }
 
 export const data: DataType[] = [
-  {label: '10AM', value: 10},
-  {label: '11AM', value: 12},
-  {label: '12PM', value: 9},
-  {label: '01PM', value: 15},
-  {label: '02PM', value: 12},
-  {label: '03PM', value: 14},
-  {label: '04PM', value: 13},
+  {label: '10AM', value: 1000},
+  {label: '11AM', value: 1200},
+  {label: '12PM', value: 900},
+  {label: '01PM', value: 1500},
+  {label: '02PM', value: 1200},
+  {label: '03PM', value: 1400},
+  {label: '04PM', value: 1300},
 ];
 
 

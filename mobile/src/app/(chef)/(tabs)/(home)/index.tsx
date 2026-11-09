@@ -1,5 +1,5 @@
 import AntDesign from '@expo/vector-icons/AntDesign'
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import 'react-native-gesture-handler'
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -12,13 +12,22 @@ import { useFont } from '@shopify/react-native-skia'
 import AnimatedText from '@/components/AnimatedText'
 import { useSharedValue } from 'react-native-reanimated'
 import HorizontalList from '@/components/HorizontalList'
+import { router } from 'expo-router'
+import { Order } from '../../../../../hooks/useOrders'
 
-export default function ChefHome() {
+type ChefHomeProps = {
+  order: Order
+  onTrack?: () => void
+  onCancel?: () => void
+}
+
+export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
   const CHART_HEIGHT = 180
   const CHART_MARGIN = 10
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const CHART_WIDTH = SCREEN_WIDTH - 82
   const selectedValue = useSharedValue(0)
+  const [runningOrders, setRunningOrders] = useState(RUNNING)
 
   const font = useFont(
     require('@expo-google-fonts/sen/700Bold/Sen_700Bold.ttf'),
@@ -31,6 +40,14 @@ export default function ChefHome() {
   const handleSheetOpen = useCallback(() => {
     sheetRef.current?.present()
   }, [])
+
+  const handleCancelOrder = useCallback(
+    (orderId: string | number) => {
+      setRunningOrders((current) => current.filter((item) => item.orderId !== orderId))
+      onCancel?.()
+    },
+    [onCancel]
+  )
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -75,7 +92,7 @@ export default function ChefHome() {
 
           <View style={styles.ordersContainer}>
             <TouchableOpacity style={styles.orderBox} onPress={handleSheetOpen}>
-              <Text style={styles.orderNumbers}>20</Text>
+              <Text style={styles.orderNumbers}>{String(runningOrders.length).padStart(2, '0')}</Text>
               <Text style={styles.orderLabel}>RUNNING ORDERS</Text>
             </TouchableOpacity>
             <TouchableOpacity>
@@ -142,12 +159,12 @@ export default function ChefHome() {
         backgroundStyle={styles.sheetBackground}
       >
         <BottomSheetFlatList
-          data={RUNNING}
+          data={runningOrders}
           keyExtractor={(item) => String(item.orderId)}
           contentContainerStyle={styles.sheetContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <Text style={styles.ordinarySheetText}>20 Running orders</Text>
+            <Text style={styles.ordinarySheetText}>{runningOrders.length} Running orders</Text>
           }
           renderItem={({ item }) => (
             <View style={styles.sheetOrder}>
@@ -162,7 +179,7 @@ export default function ChefHome() {
                   <TouchableOpacity style={styles.doneTouchableOpacity}>
                     <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#fff' }}>Done</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelTouchableOpacity}>
+                  <TouchableOpacity style={styles.cancelTouchableOpacity} onPress={() => handleCancelOrder(item.orderId)}>
                     <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#FF3326' }}>Cancel</Text>
                   </TouchableOpacity>
                 </View>

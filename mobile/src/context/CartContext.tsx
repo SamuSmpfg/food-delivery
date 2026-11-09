@@ -11,6 +11,7 @@ export type CartItem = {
   unitPrice: number
   size: string
   quantity: number
+  deliveryTime: number
 }
 
 export type Order = {
@@ -30,6 +31,7 @@ type AddPayload = {
   price: number | string
   size?: string
   quantity?: number
+  deliveryTime?: number | string
 }
 
 type CartContextValue = {
@@ -98,7 +100,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     restaurant = '',
     price,
     size = '',
-    quantity = 1
+    quantity = 1,
+    deliveryTime = 0
   }: AddPayload) => {
     const key = `${id}-${size}`
     setItems((current) => {
@@ -110,7 +113,17 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       }
       return [
         ...current,
-        { key, id, restaurantId, name, restaurant, unitPrice: Number(price), size, quantity }
+        {
+          key,
+          id,
+          restaurantId,
+          name,
+          restaurant,
+          unitPrice: Number(price),
+          size,
+          quantity,
+          deliveryTime: Number(deliveryTime) || 0
+        }
       ]
     })
   }
@@ -139,13 +152,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const placeOrder = (etaMinutes?: number) => {
     if (items.length === 0) return
     const orderItems = items.map((item) => ({ ...item }))
+    const slowest = Math.max(0, ...orderItems.map((item) => item.deliveryTime))
+    const eta = etaMinutes && etaMinutes > 0 ? etaMinutes : slowest > 0 ? slowest : 30
     setOrder({
       id: String(Date.now()),
       items: orderItems,
       total,
       address,
       placedAt: Date.now(),
-      etaMinutes: etaMinutes && etaMinutes > 0 ? etaMinutes : 30
+      etaMinutes: eta
     })
     setItems([])
   }

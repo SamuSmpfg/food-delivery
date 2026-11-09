@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import React from 'react'
 import { Order } from '../../hooks/useOrders'
@@ -15,6 +15,22 @@ const OrderCard = ({ order, onTrack, onCancel }: OrderCardProps) => {
   const dateLabel = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
   const timeLabel = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   const itemsLabel = `${String(order.itemsCount).padStart(2, '0')} Items`
+
+  const handleCancelPress = () => {
+    Alert.alert(
+      'Cancel order',
+      'Are you sure you want to cancel this order?',
+      [
+        { text: 'Keep order', style: 'cancel' },
+        {
+          text: 'Yes, cancel',
+          style: 'destructive',
+          onPress: () => onCancel?.(),
+        },
+      ],
+      { cancelable: true }
+    )
+  }
 
   return (
     <SafeAreaView style={styles.orderContainer} edges={['left', 'right']}>
@@ -58,7 +74,7 @@ const OrderCard = ({ order, onTrack, onCancel }: OrderCardProps) => {
                 onPress={onTrack}>
                 <Text style={styles.trackOrderTouchableOpacityText}>Track Order</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelOrderTouchableOpacity} onPress={onCancel}>
+              <TouchableOpacity style={styles.cancelOrderTouchableOpacity} onPress={handleCancelPress}>
                 <Text style={styles.cancelOrderTouchableOpacityText}>Cancel</Text>
               </TouchableOpacity>
             </View>

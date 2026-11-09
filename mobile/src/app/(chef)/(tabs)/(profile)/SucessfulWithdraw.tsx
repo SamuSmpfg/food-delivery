@@ -33,7 +33,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -53,7 +52,7 @@ const styles = StyleSheet.create({
   okTouchableOpacity:{
     width: 'auto',
     height: 72,
-    backgroundColor: '#FB6D3A',
+    backgroundColor: '#FF7622',
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
