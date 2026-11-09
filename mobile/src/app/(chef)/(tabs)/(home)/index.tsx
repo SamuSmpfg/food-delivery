@@ -1,19 +1,92 @@
 import AntDesign from '@expo/vector-icons/AntDesign'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import 'react-native-gesture-handler'
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Alert } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Alert, Image } from 'react-native'
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFlatList } from '@gorhom/bottom-sheet'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import LineChart from '@/components/LineChart'
-import { data, RUNNING } from '@/data/mockData'
 import { useFont } from '@shopify/react-native-skia'
 import AnimatedText from '@/components/AnimatedText'
 import { useSharedValue } from 'react-native-reanimated'
 import HorizontalList from '@/components/HorizontalList'
 import { router } from 'expo-router'
+import { useAuth } from '@clerk/clerk-expo'
 import { Order } from '../../../../../hooks/useOrders'
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL
+
+type OrderStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'CANCELLED'
+
+type RunningOrder = {
+  _id: string
+  foodType: 'BREAKFAST' | 'LUNCH' | 'DINNER'
+  name: string
+  image?: string | null
+  orderId: string
+  price: number
+  status: OrderStatus
+}
+
+type GraphPoint = {
+  time: string
+  revenue: number
+}
+
+type GraphResponse = {
+  period: string
+  date: string | null
+  totalRevenue: number
+  points: GraphPoint[]
+}
+
+type Period = 'DAILY' | 'WEEKLY'
+
+const PERIODS: Period[] = ['DAILY', 'WEEKLY']
+
+const PERIOD_LABELS: Record<Period, string> = {
+  DAILY: 'Daily',
+  WEEKLY: 'Weekly',
+}
+
+const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// Faz a chamada à API já com o token do Clerk
+async function api<T>(path: string, token: string | null, method: string = 'GET'): Promise<T> {
+  if (!API_URL) {
+    throw new Error('EXPO_PUBLIC_API_URL não está definida no .env do app')
+  }
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.message ?? `Erro ${res.status}`)
+  }
+
+  return res.json()
+}
+
+// Transforma o ponto da API no formato que o LineChart usa.
+// Se o seu LineChart espera outros nomes de campo, ajuste só aqui.
+function toChartData(points: GraphPoint[], period: Period) {
+  return points.map((p) => {
+    const d = new Date(p.time)
+    const label =
+      period === 'DAILY'
+        ? `${d.getHours() % 12 || 12}${d.getHours() < 12 ? 'AM' : 'PM'}`
+        : WEEK_DAYS[d.getDay()]
+
+    return { label, value: p.revenue }
+  })
+}
 
 type ChefHomeProps = {
   order: Order
@@ -27,36 +100,135 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const CHART_WIDTH = SCREEN_WIDTH - 82
   const selectedValue = useSharedValue(0)
+  const { getToken } = useAuth()
 
-  const [runningOrders, setRunningOrders] = useState(RUNNING)
+  const getTokenRef = useRef(getToken)
+  getTokenRef.current = getToken
+
+  const [runningOrders, setRunningOrders] = useState<RunningOrder[]>([])
+  const [orderRequests, setOrderRequests] = useState<RunningOrder[]>([])
+  const [period, setPeriod] = useState<Period>('DAILY')
+  const [graph, setGraph] = useState<GraphResponse | null>(null)
+  const [graphError, setGraphError] = useState<string | null>(null)
 
   const font = useFont(
     require('@expo-google-fonts/sen/700Bold/Sen_700Bold.ttf'),
     24
   )
 
-  const sheetRef = useRef<BottomSheetModal>(null)
+  // Cada sheet tem a sua própria ref
+  const runningSheetRef = useRef<BottomSheetModal>(null)
+  const requestSheetRef = useRef<BottomSheetModal>(null)
   const snapPoints = useMemo(() => ['75%'], [])
 
-  const handleSheetOpen = useCallback(() => {
-    sheetRef.current?.present()
+  // Busca pedidos por status (RUNNING ou PENDING)
+  const loadOrders = useCallback(async () => {
+    try {
+      const token = await getTokenRef.current()
+      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/running-orders', token)
+      setRunningOrders(res.orders)
+    } catch (error) {
+      console.error('Erro ao carregar pedidos:', error)
+    }
   }, [])
 
+  const loadOrderRequests = useCallback(async () => {
+    try {
+      const token = await getTokenRef.current()
+      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/running-orders?status=PENDING', token)
+      setOrderRequests(res.orders)
+    } catch (error) {
+      console.error('Erro ao carregar order requests:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadOrders()
+    loadOrderRequests()
+  }, [loadOrders, loadOrderRequests])
+
+  // Busca o gráfico sempre que o período mudar
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadGraph() {
+      try {
+        setGraphError(null)
+
+        const token = await getTokenRef.current()
+        const res = await api<GraphResponse>(`/api/graph?period=${period}`, token)
+
+        if (cancelled) return
+
+        setGraph(res)
+        selectedValue.value = res.totalRevenue
+      } catch (error) {
+        if (cancelled) return
+
+        console.error('Erro ao carregar gráfico:', error)
+        setGraph(null)
+        setGraphError(error instanceof Error ? error.message : 'Erro ao carregar gráfico')
+      }
+    }
+
+    loadGraph()
+
+    return () => {
+      cancelled = true
+    }
+  }, [period])
+
+  const chartData = useMemo(
+    () => toChartData(graph?.points ?? [], period),
+    [graph, period]
+  )
+
+  const handlePeriodPress = useCallback(() => {
+    setPeriod((current) => PERIODS[(PERIODS.indexOf(current) + 1) % PERIODS.length])
+  }, [])
+
+  const handleSheetOpenRunningOrders = useCallback(() => {
+    loadOrders()
+    runningSheetRef.current?.present()
+  }, [loadOrders])
+
+  const handleSheetOpenRequestOrders = useCallback(() => {
+    loadOrderRequests()
+    requestSheetRef.current?.present()
+  }, [loadOrderRequests])
+
+  const handleDonePress = useCallback(
+    async (item: RunningOrder) => {
+      try {
+        const token = await getTokenRef.current()
+        await api(`/api/running-orders/${item._id}/done`, token, 'PATCH')
+        setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
+      } catch (error) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Could not finish the order')
+      }
+    },
+    []
+  )
+
   const handleCancelPress = useCallback(
-    (orderId: string | number) => {
+    (item: RunningOrder) => {
       Alert.alert(
         'Cancel order?',
-        `Are you sure you want to cancel order ${orderId}? This action cannot be undone.`,
+        `Are you sure you want to cancel order ${item.orderId}? This action cannot be undone.`,
         [
           { text: 'No', style: 'cancel' },
           {
             text: 'Yes, cancel',
             style: 'destructive',
-            onPress: () => {
-              setRunningOrders((prev) =>
-                prev.filter((o) => String(o.orderId) !== String(orderId))
-              )
-              onCancel?.(orderId)
+            onPress: async () => {
+              try {
+                const token = await getTokenRef.current()
+                await api(`/api/running-orders/${item._id}/cancel`, token, 'PATCH')
+                setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
+                onCancel?.(item.orderId)
+              } catch (error) {
+                Alert.alert('Error', error instanceof Error ? error.message : 'Could not cancel the order')
+              }
             },
           },
         ],
@@ -64,6 +236,50 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
       )
     },
     [onCancel]
+  )
+
+  // Order request: aceitar -> sai de "requests" e entra em "running orders"
+  const handleAcceptRequest = useCallback(
+    async (item: RunningOrder) => {
+      try {
+        const token = await getTokenRef.current()
+        await api(`/api/running-orders/${item._id}/accept`, token, 'PATCH')
+
+        setOrderRequests((prev) => prev.filter((o) => o._id !== item._id))
+        setRunningOrders((prev) => [{ ...item, status: 'RUNNING' }, ...prev])
+      } catch (error) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Could not accept the order')
+      }
+    },
+    []
+  )
+
+  // Order request: recusar (com confirmação)
+  const handleDeclineRequest = useCallback(
+    (item: RunningOrder) => {
+      Alert.alert(
+        'Decline order?',
+        `Are you sure you want to decline order ${item.orderId}?`,
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, decline',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const token = await getTokenRef.current()
+                await api(`/api/running-orders/${item._id}/decline`, token, 'PATCH')
+                setOrderRequests((prev) => prev.filter((o) => o._id !== item._id))
+              } catch (error) {
+                Alert.alert('Error', error instanceof Error ? error.message : 'Could not decline the order')
+              }
+            },
+          },
+        ],
+        { cancelable: true }
+      )
+    },
+    []
   )
 
   const renderBackdrop = useCallback(
@@ -108,25 +324,23 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
           </View>
 
           <View style={styles.ordersContainer}>
-            <TouchableOpacity style={styles.orderBox} onPress={handleSheetOpen}>
+            <TouchableOpacity style={styles.orderBox} onPress={handleSheetOpenRunningOrders}>
               <Text style={styles.orderNumbers}>{String(runningOrders.length).padStart(2, '0')}</Text>
               <Text style={styles.orderLabel}>RUNNING ORDERS</Text>
             </TouchableOpacity>
-            <TouchableOpacity>
-            <View style={styles.orderBox}>
-              <Text style={styles.orderNumbers}>05</Text>
+            <TouchableOpacity style={styles.orderBox} onPress={handleSheetOpenRequestOrders}>
+              <Text style={styles.orderNumbers}>{String(orderRequests.length).padStart(2, '0')}</Text>
               <Text style={styles.orderLabel}>ORDER REQUEST</Text>
-            </View>
-              </TouchableOpacity>
+            </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.graphContainer}>
           <View style={styles.graphHeader}>
             <Text style={styles.containerHeaderTitle}>Total Revenue</Text>
-            <TouchableOpacity style={styles.graphExpandButton}>
+            <TouchableOpacity style={styles.graphExpandButton} onPress={handlePeriodPress}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={styles.graphExpandButtonText}>Daily</Text>
+                <Text style={styles.graphExpandButtonText}>{PERIOD_LABELS[period]}</Text>
                 <Feather name="chevron-down" size={12} color="#181C2E" />
               </View>
             </TouchableOpacity>
@@ -136,13 +350,24 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
           </View>
           <AnimatedText font={font} selectedValue={selectedValue} />
           <GestureHandlerRootView style={{ height: CHART_HEIGHT }}>
-            <LineChart
-              data={data}
-              chartWidth={CHART_WIDTH}
-              chartHeight={CHART_HEIGHT}
-              chartMargin={CHART_MARGIN}
-              selectedValue={selectedValue}
-            />
+            {graphError ? (
+              <View style={styles.emptyChart}>
+                <Text style={styles.chartErrorText}>{graphError}</Text>
+              </View>
+            ) : chartData.length >= 2 ? (
+              <LineChart
+                key={period}
+                data={chartData}
+                chartWidth={CHART_WIDTH}
+                chartHeight={CHART_HEIGHT}
+                chartMargin={CHART_MARGIN}
+                selectedValue={selectedValue}
+              />
+            ) : (
+              <View style={styles.emptyChart}>
+                <Text style={styles.containerHeaderTitle}>No revenue data yet</Text>
+              </View>
+            )}
           </GestureHandlerRootView>
         </View>
 
@@ -170,8 +395,9 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
         </ScrollView>
 
 
+      {/* Sheet: Running orders */}
       <BottomSheetModal
-        ref={sheetRef}
+        ref={runningSheetRef}
         snapPoints={snapPoints}
         enablePanDownToClose={true}
         backdropComponent={renderBackdrop}
@@ -179,30 +405,92 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
       >
         <BottomSheetFlatList
           data={runningOrders}
-          keyExtractor={(item) => String(item.orderId)}
+          keyExtractor={(item) => item._id}
           contentContainerStyle={styles.sheetContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <Text style={styles.ordinarySheetText}>{runningOrders.length} Running orders</Text>
           }
+          ListEmptyComponent={
+            <Text style={styles.emptyListText}>No running orders</Text>
+          }
           renderItem={({ item }) => (
             <View style={styles.sheetOrder}>
-              <View style={styles.foodImgSheet} />
+              {item.image ? (
+                <Image source={{ uri: item.image }} style={styles.foodImgSheet} resizeMode="cover" />
+              ) : (
+                <View style={styles.foodImgSheet} />
+              )}
               <View style={{ flexDirection: 'column', gap: 4, marginLeft: 16 }}>
-                <Text style={styles.foodClass}>{item.class}</Text>
-                <Text style={styles.foodName}>{item.title}</Text>
+                <Text style={styles.foodClass}>{item.foodType}</Text>
+                <Text style={styles.foodName}>{item.name}</Text>
                 <Text style={styles.foodId}>ID: {item.orderId}</Text>
 
                 <View style={styles.sheetButtons}>
                   <Text style={[styles.foodName, { fontFamily: 'Sen_400Regular', marginRight: 40 }]}>${item.price}</Text>
-                  <TouchableOpacity style={styles.doneTouchableOpacity}>
+                  <TouchableOpacity
+                    style={styles.doneTouchableOpacity}
+                    onPress={() => handleDonePress(item)}
+                  >
                     <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#fff' }}>Done</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.cancelTouchableOpacity}
-                    onPress={() => handleCancelPress(item.orderId)}
+                    onPress={() => handleCancelPress(item)}
                   >
                     <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#FF3326' }}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+        />
+      </BottomSheetModal>
+
+      {/* Sheet: Order requests */}
+      <BottomSheetModal
+        ref={requestSheetRef}
+        snapPoints={snapPoints}
+        enablePanDownToClose={true}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={styles.sheetBackground}
+      >
+        <BottomSheetFlatList
+          data={orderRequests}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.sheetContent}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <Text style={styles.ordinarySheetText}>{orderRequests.length} Order requests</Text>
+          }
+          ListEmptyComponent={
+            <Text style={styles.emptyListText}>No order requests</Text>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.sheetOrder}>
+              {item.image ? (
+                <Image source={{ uri: item.image }} style={styles.foodImgSheet} resizeMode="cover" />
+              ) : (
+                <View style={styles.foodImgSheet} />
+              )}
+              <View style={{ flexDirection: 'column', gap: 4, marginLeft: 16 }}>
+                <Text style={styles.foodClass}>{item.foodType}</Text>
+                <Text style={styles.foodName}>{item.name}</Text>
+                <Text style={styles.foodId}>ID: {item.orderId}</Text>
+
+                <View style={styles.sheetButtons}>
+                  <Text style={[styles.foodName, { fontFamily: 'Sen_400Regular', marginRight: 24 }]}>${item.price}</Text>
+                  <TouchableOpacity
+                    style={styles.acceptTouchableOpacity}
+                    onPress={() => handleAcceptRequest(item)}
+                  >
+                    <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#fff' }}>Accept</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.cancelTouchableOpacity}
+                    onPress={() => handleDeclineRequest(item)}
+                  >
+                    <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#FF3326' }}>Decline</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -341,6 +629,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  acceptTouchableOpacity: {
+    backgroundColor: '#FF7622',
+    width: 'auto',
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
   cancelTouchableOpacity: {
     borderColor: '#FF3326',
     borderWidth: 1,
@@ -355,6 +652,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Sen_400Regular',
     fontSize: 17,
     color: '#181C2E'
+  },
+  emptyListText: {
+    fontFamily: 'Sen_400Regular',
+    fontSize: 14,
+    color: '#9C9BA6',
+    textAlign: 'center',
+    marginTop: 48
   },
   graphContainer: {
     backgroundColor: '#fff',
@@ -383,6 +687,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9C9BA6',
     marginRight: 8
+  },
+  emptyChart: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  chartErrorText: {
+    fontFamily: 'Sen_400Regular',
+    fontSize: 12,
+    color: '#FF3326',
+    textAlign: 'center',
+    paddingHorizontal: 16
   },
   containerHeaderTitle: {
     color: '#32343E',

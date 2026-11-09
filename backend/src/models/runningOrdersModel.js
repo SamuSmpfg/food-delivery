@@ -13,8 +13,8 @@ const runningOrderSchema = new mongoose.Schema(
         price: { type: Number, required: true, min: 0 },
         status: {
             type: String,
-            enum: ["RUNNING", "DONE", "CANCELLED"],
-            default: "RUNNING",
+            enum: ["PENDING", "RUNNING", "DONE", "CANCELLED"],
+            default: "PENDING",
             index: true
         }
     },

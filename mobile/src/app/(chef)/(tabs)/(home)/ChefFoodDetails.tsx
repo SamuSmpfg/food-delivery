@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native'
-import React from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform } from 'react-native'
+import React, { useState, useRef, useEffect } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { useRouter, useNavigation, useLocalSearchParams } from 'expo-router'
+import { useAuth } from '@clerk/clerk-expo'
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import AntDesign from '@expo/vector-icons/AntDesign';
 
@@ -14,29 +15,164 @@ type Ingredient = {
   allergy?: boolean
 }
 
-const INGREDIENTS: Ingredient[] = [
-  { id: '1', name: 'Salt' },
-  { id: '2', name: 'Chicken' },
-  { id: '3', name: 'Onion', allergy: true },
-  { id: '4', name: 'Garlic' },
-  { id: '5', name: 'Pappers', allergy: true },
-  { id: '6', name: 'Ginger' },
-  { id: '7', name: 'Broccoli' },
-  { id: '8', name: 'Orange' },
-  { id: '9', name: 'Walnut' },
-]
+type Food = {
+  name: string
+  price: string
+  address: string
+  description: string
+  category: string
+  delivery: string
+  ingredients: Ingredient[]
+}
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL
+
+const INITIAL_FOOD: Food = {
+  name: 'Chicken Thai Biriyani',
+  price: '60',
+  address: 'Kentucky 39495',
+  description:
+    'Lorem ipsum dolor sit amet, consetdur Maton adipiscing elit. Bibendum in vel, mattis et amet dui mauris turpis.',
+  category: 'Breakfest',
+  delivery: 'Delivery',
+  ingredients: [
+    { id: '1', name: 'Salt' },
+    { id: '2', name: 'Chicken' },
+    { id: '3', name: 'Onion', allergy: true },
+    { id: '4', name: 'Garlic' },
+    { id: '5', name: 'Pappers', allergy: true },
+    { id: '6', name: 'Ginger' },
+    { id: '7', name: 'Broccoli' },
+    { id: '8', name: 'Orange' },
+    { id: '9', name: 'Walnut' },
+  ],
+}
+
+const getChanges = (base: Food, current: Food): Partial<Food> => {
+  const changes: Partial<Food> = {}
+  ;(Object.keys(current) as (keyof Food)[]).forEach((key) => {
+    if (JSON.stringify(base[key]) !== JSON.stringify(current[key])) {
+      ;(changes as any)[key] = current[key]
+    }
+  })
+  return changes
+}
 
 const ChefFoodDetails = (props: Props) => {
 
   const router = useRouter()
+  const navigation = useNavigation<any>()
+  const { getToken } = useAuth()
+  const { id: dishId } = useLocalSearchParams<{ id: string }>()
+
+  const listRef = useRef<FlatList<Ingredient>>(null)
+
+  const [isEditing, setIsEditing] = useState(false)
+  const [food, setFood] = useState<Food>(INITIAL_FOOD)
+  const [draft, setDraft] = useState<Food>(INITIAL_FOOD)
+  const [newIngredient, setNewIngredient] = useState('')
+
+  const foodRef = useRef(food)
+  const draftRef = useRef(draft)
+  const isEditingRef = useRef(isEditing)
+  foodRef.current = food
+  draftRef.current = draft
+  isEditingRef.current = isEditing
+
+  const syncedRef = useRef<Food>(INITIAL_FOOD)
+
+  const data = isEditing ? draft : food
+
+  const syncChanges = async (current: Food) => {
+    if (!dishId) return
+    const changes = getChanges(syncedRef.current, current)
+    if (Object.keys(changes).length === 0) return
+
+    const payload: any = { ...changes }
+    if (payload.price !== undefined) payload.price = Number(payload.price)
+
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/dishes/${dishId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      syncedRef.current = current
+    } catch (e) {
+      console.warn('Falha ao salvar prato:', e)
+    }
+  }
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', () => {
+      const current = isEditingRef.current ? draftRef.current : foodRef.current
+      syncChanges(current)
+    })
+    return unsubscribe
+  }, [navigation, dishId])
+
+  const handleEdit = () => {
+    setDraft(food)
+    setNewIngredient('')
+    setIsEditing(true)
+  }
+
+  const handleSave = () => {
+    setFood(draft)
+    setIsEditing(false)
+    syncChanges(draft)
+  }
+
+  const handleCancel = () => {
+    setDraft(food)
+    setNewIngredient('')
+    setIsEditing(false)
+  }
+
+  const updateField = <K extends keyof Food>(key: K, value: Food[K]) =>
+    setDraft((prev) => ({ ...prev, [key]: value }))
+
+  const toggleAllergy = (id: string) => {
+    if (!isEditing) return
+    updateField(
+      'ingredients',
+      draft.ingredients.map((i) => (i.id === id ? { ...i, allergy: !i.allergy } : i))
+    )
+  }
+
+  const removeIngredient = (id: string) =>
+    updateField('ingredients', draft.ingredients.filter((i) => i.id !== id))
+
+  const addIngredient = () => {
+    const name = newIngredient.trim()
+    if (!name) return
+    updateField('ingredients', [...draft.ingredients, { id: String(Date.now()), name }])
+    setNewIngredient('')
+  }
 
   const renderIngredient = ({ item }: { item: Ingredient }) => (
-    <TouchableOpacity style={styles.ingredientItem}>
-      <View style={styles.ingredientCircle}>
+    <TouchableOpacity
+      style={styles.ingredientItem}
+      activeOpacity={isEditing ? 0.6 : 1}
+      onPress={() => toggleAllergy(item.id)}
+    >
+      <View style={[styles.ingredientCircle, isEditing && item.allergy && styles.ingredientCircleAllergy]}>
         <Text style={styles.ingredientCircleText} numberOfLines={1} adjustsFontSizeToFit>
           {item.name}
         </Text>
       </View>
+
+      {isEditing && (
+        <TouchableOpacity style={styles.removeBadge} onPress={() => removeIngredient(item.id)}>
+          <MaterialIcons name="close" size={12} color="#fff" />
+        </TouchableOpacity>
+      )}
+
       {item.allergy && <Text style={styles.ingredientAllergy}>(Alergy)</Text>}
     </TouchableOpacity>
   )
@@ -44,25 +180,78 @@ const ChefFoodDetails = (props: Props) => {
   const renderListHeader = () => (
     <View>
       <View style={styles.foodImg}>
-        <View style={styles.foodClass}>
-          <Text style={styles.foodClassText}>Breakfest</Text>
-        </View>
-        <View style={styles.foodClass}>
-          <Text style={styles.foodClassText}>Delivery</Text>
-        </View>
+        {isEditing ? (
+          <>
+            <View style={styles.foodClass}>
+              <TextInput
+                style={[styles.foodClassText, styles.chipInput]}
+                value={data.category}
+                onChangeText={(t) => updateField('category', t)}
+              />
+            </View>
+            <View style={styles.foodClass}>
+              <TextInput
+                style={[styles.foodClassText, styles.chipInput]}
+                value={data.delivery}
+                onChangeText={(t) => updateField('delivery', t)}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.foodClass}>
+              <Text style={styles.foodClassText}>{data.category}</Text>
+            </View>
+            <View style={styles.foodClass}>
+              <Text style={styles.foodClassText}>{data.delivery}</Text>
+            </View>
+          </>
+        )}
       </View>
 
       <View>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-          <Text style={styles.foodNameAndPrice}>Chicken Thai Biriyani</Text>
-          <Text style={styles.foodNameAndPrice}>$60</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          {isEditing ? (
+            <TextInput
+              style={[styles.foodNameAndPrice, styles.input, { flex: 1, marginRight: 12 }]}
+              value={data.name}
+              onChangeText={(t) => updateField('name', t)}
+              placeholder="Food name"
+            />
+          ) : (
+            <Text style={styles.foodNameAndPrice}>{data.name}</Text>
+          )}
+
+          {isEditing ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.foodNameAndPrice}>$</Text>
+              <TextInput
+                style={[styles.foodNameAndPrice, styles.input, { minWidth: 48, textAlign: 'right' }]}
+                value={data.price}
+                onChangeText={(t) => updateField('price', t.replace(/[^0-9.]/g, ''))}
+                keyboardType="decimal-pad"
+                placeholder="0"
+              />
+            </View>
+          ) : (
+            <Text style={styles.foodNameAndPrice}>${data.price}</Text>
+          )}
         </View>
 
-        <View style={{flexDirection: 'row', marginTop: 8, alignItems: 'center'}}>
+        <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center' }}>
           <FontAwesome6 name="location-dot" size={16} color="#AFAFAF" />
-          <Text style={styles.addressAndReviews}>Kentucky 39495</Text>
+          {isEditing ? (
+            <TextInput
+              style={[styles.addressAndReviews, styles.input, { flex: 1 }]}
+              value={data.address}
+              onChangeText={(t) => updateField('address', t)}
+              placeholder="Address"
+            />
+          ) : (
+            <Text style={styles.addressAndReviews}>{data.address}</Text>
+          )}
 
-          <View style={{flexDirection: 'row', alignItems: 'center', marginLeft: 'auto'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
             <AntDesign name="star" size={24} color="#FB6D3A" />
             <Text style={styles.rating}>4.9</Text>
             <Text style={styles.addressAndReviews}>(10 reviews)</Text>
@@ -70,20 +259,48 @@ const ChefFoodDetails = (props: Props) => {
         </View>
       </View>
 
-      <View style={styles.lineSeparator}/>
+      <View style={styles.lineSeparator} />
 
-      <Text style={styles.ingredientsTitle}>INGRIDENTS</Text>
+      <Text style={styles.ingredientsTitle}>INGREDIENTS</Text>
+
+      {isEditing && (
+        <View style={styles.addIngredientRow}>
+          <TextInput
+            style={[styles.addIngredientInput, styles.input]}
+            value={newIngredient}
+            onChangeText={setNewIngredient}
+            placeholder="New ingredient"
+            placeholderTextColor="#AFAFAF"
+            onSubmitEditing={addIngredient}
+            returnKeyType="done"
+          />
+          <TouchableOpacity style={styles.addIngredientButton} onPress={addIngredient}>
+            <MaterialIcons name="add" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
+      {isEditing && <Text style={styles.hintText}>Toque em um ingrediente para marcar/desmarcar alergia</Text>}
     </View>
   )
 
   const renderListFooter = () => (
     <View style={styles.footer}>
-      <View style={styles.lineSeparator}/>
+      <View style={styles.lineSeparator} />
 
       <Text style={styles.ingredientsTitle}>DESCRIPTION</Text>
-      <Text style={styles.descriptionText}>
-        Lorem ipsum dolor sit amet, consetdur Maton adipiscing elit. Bibendum in vel, mattis et amet dui mauris turpis.
-      </Text>
+      {isEditing ? (
+        <TextInput
+          style={[styles.descriptionText, styles.input, styles.descriptionInput]}
+          value={data.description}
+          onChangeText={(t) => updateField('description', t)}
+          onFocus={() => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 250)}
+          multiline
+          textAlignVertical="top"
+          placeholder="Description"
+        />
+      ) : (
+        <Text style={styles.descriptionText}>{data.description}</Text>
+      )}
     </View>
   )
 
@@ -98,39 +315,53 @@ const ChefFoodDetails = (props: Props) => {
         </TouchableOpacity>
 
         <Text style={styles.title}>Food Details</Text>
-        <TouchableOpacity>
-          <Text style={styles.editTouchableOpacity}>EDIT</Text>
+
+        {isEditing && (
+          <TouchableOpacity onPress={handleCancel}>
+            <Text style={styles.cancelTouchableOpacity}>CANCEL</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={isEditing ? handleSave : handleEdit}>
+          <Text style={styles.editTouchableOpacity}>{isEditing ? 'SAVE' : 'EDIT'}</Text>
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={INGREDIENTS}
-        keyExtractor={(item) => item.id}
-        renderItem={renderIngredient}
-        numColumns={5}
-        ListHeaderComponent={renderListHeader}
-        ListFooterComponent={renderListFooter}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.ingredientsList}
-      />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <FlatList
+          ref={listRef}
+          data={data.ingredients}
+          extraData={isEditing}
+          keyExtractor={(item) => item.id}
+          renderItem={renderIngredient}
+          numColumns={5}
+          ListHeaderComponent={renderListHeader()}
+          ListFooterComponent={renderListFooter()}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={[styles.ingredientsList, isEditing && styles.ingredientsListEditing]}
+        />
+      </KeyboardAvoidingView>
 
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-    container: {
-        backgroundColor: '#fff',
-        flex: 1,
-        paddingHorizontal: 24,
-    },
+  container: {
+    backgroundColor: '#fff',
+    flex: 1,
+    paddingHorizontal: 24,
+  },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-
   },
-    goBackTouchableOpacity: {
+  goBackTouchableOpacity: {
     backgroundColor: '#ECF0F4',
     height: 45,
     width: 45,
@@ -138,7 +369,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
-    title: {
+  title: {
     color: '#32343E',
     fontSize: 14,
     fontFamily: 'Sen_400Regular',
@@ -148,6 +379,12 @@ const styles = StyleSheet.create({
     color: '#FB6D3A',
     fontFamily: 'Sen_400Regular',
     fontSize: 14,
+  },
+  cancelTouchableOpacity: {
+    color: '#AFAFAF',
+    fontFamily: 'Sen_400Regular',
+    fontSize: 14,
+    marginRight: 12,
   },
   foodImg: {
     width: 'auto',
@@ -209,6 +446,9 @@ const styles = StyleSheet.create({
     rowGap: 16,
     paddingBottom: 120
   },
+  ingredientsListEditing: {
+    paddingBottom: 320
+  },
   ingredientItem: {
     width: '20%',
     alignItems: 'center'
@@ -242,7 +482,61 @@ const styles = StyleSheet.create({
     fontFamily: 'Sen_400Regular',
     fontSize: 14,
     lineHeight: 22
-  }
+  },
+  input: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#FB6D3A',
+    paddingVertical: 2,
+  },
+  chipInput: {
+    minWidth: 70,
+    textAlign: 'center',
+    padding: 0,
+  },
+  descriptionInput: {
+    minHeight: 100,
+  },
+  addIngredientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  addIngredientInput: {
+    flex: 1,
+    fontFamily: 'Sen_400Regular',
+    fontSize: 14,
+    color: '#32343E',
+  },
+  addIngredientButton: {
+    backgroundColor: '#FB6D3A',
+    height: 32,
+    width: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hintText: {
+    color: '#AFAFAF',
+    fontFamily: 'Sen_400Regular',
+    fontSize: 11,
+    marginBottom: 16,
+  },
+  ingredientCircleAllergy: {
+    borderWidth: 1,
+    borderColor: '#FB6D3A',
+  },
+  removeBadge: {
+    position: 'absolute',
+    top: -4,
+    right: 2,
+    backgroundColor: '#FB6D3A',
+    height: 18,
+    width: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 })
 
 export default ChefFoodDetails

@@ -3,8 +3,6 @@ import Graph from '../models/graphModel.js'
 
 const router = express.Router()
 
-// Devolve os pontos do gráfico e o total
-// Exemplo: GET /api/graph?period=DAILY&date=2026-11-09
 router.get('/', async (req, res) => {
     try {
         const period = (req.query.period || 'DAILY').toUpperCase()
@@ -13,14 +11,23 @@ router.get('/', async (req, res) => {
             return res.status(400).json({ message: 'Período inválido' })
         }
 
-        // se não mandar data, usa o início de hoje
-        const date = req.query.date ? new Date(req.query.date) : new Date()
-        date.setHours(0, 0, 0, 0)
+        const filter = { period }
 
-        const graph = await Graph.findOne({ period, date })
+        if (req.query.date) {
+            const date = new Date(req.query.date)
+
+            if (Number.isNaN(date.getTime())) {
+                return res.status(400).json({ message: 'Data inválida' })
+            }
+
+            date.setHours(0, 0, 0, 0)
+            filter.date = date
+        }
+
+        const graph = await Graph.findOne(filter).sort({ date: -1 })
 
         if (!graph) {
-            return res.json({ period, date, totalRevenue: 0, points: [] })
+            return res.json({ period, date: null, totalRevenue: 0, points: [] })
         }
 
         res.json({
