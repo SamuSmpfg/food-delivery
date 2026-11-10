@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native'
 import React, { useState, useRef, useEffect } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -20,21 +20,23 @@ type Food = {
   price: string
   address: string
   description: string
-  category: string
-  delivery: string
+  classification: string
+  deliveryMode: string
   ingredients: Ingredient[]
 }
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL
 
+const CLASSIFICATIONS = ['Breakfast', 'Lunch', 'Dinner']
+const DELIVERY_MODES = ['Delivery', 'Pickup', 'Dine-in']
+
 const INITIAL_FOOD: Food = {
   name: 'Chicken Thai Biriyani',
   price: '60',
   address: 'Kentucky 39495',
-  description:
-    'Lorem ipsum dolor sit amet, consetdur Maton adipiscing elit. Bibendum in vel, mattis et amet dui mauris turpis.',
-  category: 'Breakfest',
-  delivery: 'Delivery',
+  description: 'Lorem ipsum dolor sit amet, consetdur Maton adipiscing elit. Bibendum in vel, mattis et amet dui mauris turpis.',
+  classification: CLASSIFICATIONS[0],
+  deliveryMode: DELIVERY_MODES[0],
   ingredients: [
     { id: '1', name: 'Salt' },
     { id: '2', name: 'Chicken' },
@@ -57,6 +59,9 @@ const getChanges = (base: Food, current: Food): Partial<Food> => {
   })
   return changes
 }
+const cycle = (list: string[], value: string) => list[(list.indexOf(value) + 1) % list.length]
+
+
 
 const ChefFoodDetails = (props: Props) => {
 
@@ -134,6 +139,13 @@ const ChefFoodDetails = (props: Props) => {
     setIsEditing(false)
   }
 
+        const confirmSave = () => {
+    Alert.alert('Save changes', `Are you sure you want to save the changes?`, [
+      { text: 'No, cancel', style: 'cancel' },
+      { text: 'Yes, save', onPress: () => handleSave() }
+    ])
+  }
+  
   const updateField = <K extends keyof Food>(key: K, value: Food[K]) =>
     setDraft((prev) => ({ ...prev, [key]: value }))
 
@@ -182,41 +194,40 @@ const ChefFoodDetails = (props: Props) => {
       <View style={styles.foodImg}>
         {isEditing ? (
           <>
-            <View style={styles.foodClass}>
-              <TextInput
-                style={[styles.foodClassText, styles.chipInput]}
-                value={data.category}
-                onChangeText={(t) => updateField('category', t)}
-              />
-            </View>
-            <View style={styles.foodClass}>
-              <TextInput
-                style={[styles.foodClassText, styles.chipInput]}
-                value={data.delivery}
-                onChangeText={(t) => updateField('delivery', t)}
-              />
-            </View>
+            <TouchableOpacity
+              style={[styles.foodClass, styles.foodClassEditing]}
+              onPress={() => updateField('classification', cycle(CLASSIFICATIONS, data.classification))}
+            >
+              <Text style={styles.foodClassText}>{data.classification}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.foodClass, styles.foodClassEditing]}
+              onPress={() => updateField('deliveryMode', cycle(DELIVERY_MODES, data.deliveryMode))}
+            >
+              <Text style={styles.foodClassText}>{data.deliveryMode}</Text>
+            </TouchableOpacity>
           </>
         ) : (
           <>
             <View style={styles.foodClass}>
-              <Text style={styles.foodClassText}>{data.category}</Text>
+              <Text style={styles.foodClassText}>{data.classification}</Text>
             </View>
             <View style={styles.foodClass}>
-              <Text style={styles.foodClassText}>{data.delivery}</Text>
+              <Text style={styles.foodClassText}>{data.deliveryMode}</Text>
             </View>
           </>
         )}
       </View>
 
       <View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
           {isEditing ? (
             <TextInput
               style={[styles.foodNameAndPrice, styles.input, { flex: 1, marginRight: 12 }]}
               value={data.name}
               onChangeText={(t) => updateField('name', t)}
               placeholder="Food name"
+              placeholderTextColor={'#9C9BA6'}
             />
           ) : (
             <Text style={styles.foodNameAndPrice}>{data.name}</Text>
@@ -231,6 +242,7 @@ const ChefFoodDetails = (props: Props) => {
                 onChangeText={(t) => updateField('price', t.replace(/[^0-9.]/g, ''))}
                 keyboardType="decimal-pad"
                 placeholder="0"
+                placeholderTextColor={'#9C9BA6'}
               />
             </View>
           ) : (
@@ -279,7 +291,7 @@ const ChefFoodDetails = (props: Props) => {
           </TouchableOpacity>
         </View>
       )}
-      {isEditing && <Text style={styles.hintText}>Toque em um ingrediente para marcar/desmarcar alergia</Text>}
+      {isEditing && <Text style={styles.hintText}>Tap an ingredient to mark/unmark an allergy</Text>}
     </View>
   )
 
@@ -321,7 +333,7 @@ const ChefFoodDetails = (props: Props) => {
             <Text style={styles.cancelTouchableOpacity}>CANCEL</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity onPress={isEditing ? handleSave : handleEdit}>
+        <TouchableOpacity onPress={isEditing ? confirmSave : handleEdit}>
           <Text style={styles.editTouchableOpacity}>{isEditing ? 'SAVE' : 'EDIT'}</Text>
         </TouchableOpacity>
       </View>
@@ -536,6 +548,10 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+    foodClassEditing: {
+    borderWidth: 1,
+    borderColor: '#FB6D3A',
   },
 })
 

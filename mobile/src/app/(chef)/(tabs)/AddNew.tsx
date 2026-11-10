@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Keyboard, TouchableWithoutFeedback, ScrollView } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, Keyboard, TouchableWithoutFeedback, ScrollView, Alert } from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -29,12 +29,37 @@ const CheckItem = ({ label, checked, onPress }: CheckItemProps) => (
 const AddNew = (props: Props) => {
 
   const router = useRouter()
+  const [itemName, setItemName] = useState('')
+  const [price, setPrice] = useState('')
+  const [details, setDetails] = useState('')
   const [option, setOption] = useState<DeliveryOption>('pickup')
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([])
+  const [resetKey, setResetKey] = useState(0)
 
   const toggleIngredient = (id: string) => {
     setSelectedIngredients((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  const resetForm = () => {
+    setItemName('')
+    setPrice('')
+    setDetails('')
+    setOption('pickup')
+    setSelectedIngredients([])
+    setResetKey((prev) => prev + 1)
+    Keyboard.dismiss()
+  }
+
+  const handleReset = () => {
+    Alert.alert(
+      'Reset Formulary',
+      'Are you sure you want to reset? All entered information will be lost.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset', style: 'destructive', onPress: resetForm },
+      ]
     )
   }
 
@@ -49,7 +74,7 @@ const AddNew = (props: Props) => {
         </TouchableOpacity>
 
         <Text style={styles.title}>Add New Items</Text>
-        <TouchableOpacity onPress={() => setSelectedIngredients([])}>
+        <TouchableOpacity onPress={handleReset}>
           <Text style={styles.reset}>RESET</Text>
         </TouchableOpacity>
       </View>
@@ -60,13 +85,15 @@ const AddNew = (props: Props) => {
           style={styles.itemNameInput}
           placeholder='Mazalichiken Halim'
           placeholderTextColor={'#9C9BA6'}
+          value={itemName}
+          onChangeText={setItemName}
         />
       </View>
 
       <View style={{ marginVertical: 16, paddingHorizontal: 24 }}>
         <Text style={styles.labels}>UPLOAD PHOTO/VIDEO</Text>
         <View style={{ marginHorizontal: -24 }}>
-          <ImageUploadList />
+          <ImageUploadList key={`images-${resetKey}`} />
         </View>
 
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -78,6 +105,8 @@ const AddNew = (props: Props) => {
                 placeholder='$50'
                 placeholderTextColor={'#9C9BA6'}
                 keyboardType='numeric'
+                value={price}
+                onChangeText={setPrice}
               />
               <View style={styles.checkboxWrapper}>
                 <CheckItem label="Pick up" checked={option === 'pickup'} onPress={() => setOption('pickup')} />
@@ -91,6 +120,7 @@ const AddNew = (props: Props) => {
           <Text style={styles.labels}>INGREDIENTS</Text>
           <View style={{ marginHorizontal: -24 }}>
             <IngredientList
+              key={`ingredients-${resetKey}`}
               selectedIds={selectedIngredients}
               onToggle={toggleIngredient}
             />
@@ -106,6 +136,8 @@ const AddNew = (props: Props) => {
           inputMode="text"
           multiline
           textAlignVertical="top"
+          value={details}
+          onChangeText={setDetails}
           />
         </View>
 

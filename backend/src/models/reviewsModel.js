@@ -6,8 +6,8 @@ const reviewSchema = new mongoose.Schema(
         restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
         dishId: { type: mongoose.Schema.Types.ObjectId, ref: 'Dish', required: true },
         orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true },
+        title: { type: String, required: true, trim: true, maxlength: 50 },
         rating: { type: Number, required: true, min: 1, max: 5 },
-        title: { type: String, required: true, trim: true, maxlength: 100 },
         description: { type: String, required: true, trim: true, maxlength: 500 },
     },
     { timestamps: true }

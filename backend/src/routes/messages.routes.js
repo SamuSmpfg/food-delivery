@@ -16,6 +16,40 @@ const getParticipants = async (orderId) => {
     return [order.userId, order.courierId, restaurant?.ownerId].filter(Boolean).map(String);
 };
 
+router.get('/conversations', asyncHandler(async (req, res) => {
+    const userId = String(req.user._id);
+    const messages = await Message.find({
+        $or: [{ senderId: req.user._id }, { receiverId: req.user._id }]
+    })
+        .sort({ createdAt: -1 })
+        .populate('senderId', 'name')
+        .populate('receiverId', 'name');
+
+    const conversations = new Map();
+
+    for (const message of messages) {
+        const isReceiver = String(message.receiverId._id) === userId;
+        const other = isReceiver ? message.senderId : message.receiverId;
+        const key = `${message.orderId}:${other._id}`;
+
+        if (!conversations.has(key)) {
+            conversations.set(key, {
+                orderId: message.orderId,
+                user: { _id: other._id, name: other.name },
+                lastMessage: message.body,
+                lastMessageAt: message.createdAt,
+                unreadCount: 0
+            });
+        }
+
+        if (isReceiver && !message.readAt) {
+            conversations.get(key).unreadCount += 1;
+        }
+    }
+
+    res.json([...conversations.values()]);
+}));
+
 router.get('/order/:orderId', validateId('orderId'), asyncHandler(async (req, res) => {
     const participants = await getParticipants(req.params.orderId);
     if (!participants) return res.status(404).json({ message: 'Order not found' });

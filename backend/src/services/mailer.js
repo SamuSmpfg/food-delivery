@@ -6,7 +6,15 @@ function getTransporter() {
   if (transporter) return transporter;
 
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
+
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    console.warn('SMTP não configurado. Faltando:', {
+      SMTP_HOST: !!SMTP_HOST,
+      SMTP_USER: !!SMTP_USER,
+      SMTP_PASS: !!SMTP_PASS,
+    });
+    return null;
+  }
 
   const port = Number(SMTP_PORT) || 465;
 
@@ -15,12 +23,23 @@ function getTransporter() {
     port,
     secure: port === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+  });
+
+  transporter.verify((error) => {
+    if (error) {
+      console.error('Falha ao conectar no SMTP:', error.message);
+    } else {
+      console.log('SMTP pronto para enviar emails');
+    }
   });
 
   return transporter;
 }
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -37,13 +56,19 @@ export async function sendMail({ to, subject, text, html }) {
     return false;
   }
 
-  await mailer.sendMail({
-    from: process.env.MAIL_FROM || process.env.SMTP_USER,
-    to,
-    subject,
-    text,
-    html,
-  });
+  try {
+    const info = await mailer.sendMail({
+      from: process.env.MAIL_FROM || process.env.SMTP_USER,
+      to,
+      subject,
+      text,
+      html,
+    });
 
-  return true;
+    console.log(`Email enviado para ${to}:`, info.messageId, info.response);
+    return true;
+  } catch (error) {
+    console.error(`Erro ao enviar email para ${to}:`, error.message);
+    return false;
+  }
 }

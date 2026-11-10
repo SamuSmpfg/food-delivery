@@ -9,7 +9,9 @@ router.use(requireUser);
 router.get('/', asyncHandler(async (req, res) => {
     const notifications = await Notification.find({ userId: req.user._id })
         .sort({ createdAt: -1 })
-        .limit(100);
+        .limit(100)
+        .populate('restaurantId', 'name image')
+        .populate('dishId', 'name image');
     res.json(notifications);
 }));
 
