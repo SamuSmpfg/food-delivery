@@ -4,8 +4,14 @@ import User from '../models/userModel.js'
 
 const router = Router()
 
+const ALLOWED_ROLES = ['customer', 'chef', 'courier']
+
 router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
+    if (!Buffer.isBuffer(req.body)) {
+      return res.status(400).json({ message: 'Invalid body' })
+    }
+
     const headers = {
       'svix-id': req.headers['svix-id'],
       'svix-timestamp': req.headers['svix-timestamp'],
@@ -33,12 +39,12 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
       const lastName = data.last_name || ''
       const name = `${firstName} ${lastName}`.trim() || email.split('@')[0]
 
+      const clerkRole = data.public_metadata?.role
+      const role = ALLOWED_ROLES.includes(clerkRole) ? clerkRole : 'customer'
+
       await User.findOneAndUpdate(
         { clerkId: data.id },
-        {
-          $set: { clerkId: data.id, email, firstName, lastName, name },
-          $setOnInsert: { role: 'customer' },
-        },
+        { $set: { clerkId: data.id, email, firstName, lastName, name, role } },
         { upsert: true, new: true }
       )
     }

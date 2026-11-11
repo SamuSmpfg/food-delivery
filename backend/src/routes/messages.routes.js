@@ -17,37 +17,57 @@ const getParticipants = async (orderId) => {
 };
 
 router.get('/conversations', asyncHandler(async (req, res) => {
-    const userId = String(req.user._id);
-    const messages = await Message.find({
-        $or: [{ senderId: req.user._id }, { receiverId: req.user._id }]
-    })
-        .sort({ createdAt: -1 })
-        .populate('senderId', 'name')
-        .populate('receiverId', 'name');
+    const userId = new mongoose.Types.ObjectId(req.user._id);
 
-    const conversations = new Map();
-
-    for (const message of messages) {
-        const isReceiver = String(message.receiverId._id) === userId;
-        const other = isReceiver ? message.senderId : message.receiverId;
-        const key = `${message.orderId}:${other._id}`;
-
-        if (!conversations.has(key)) {
-            conversations.set(key, {
-                orderId: message.orderId,
-                user: { _id: other._id, name: other.name },
-                lastMessage: message.body,
-                lastMessageAt: message.createdAt,
-                unreadCount: 0
-            });
+    const conversations = await Message.aggregate([
+        { $match: { $or: [{ senderId: userId }, { receiverId: userId }] } },
+        { $sort: { createdAt: -1 } },
+        {
+            $addFields: {
+                otherUserId: {
+                    $cond: [{ $eq: ['$senderId', userId] }, '$receiverId', '$senderId']
+                }
+            }
+        },
+        {
+            $group: {
+                _id: { orderId: '$orderId', otherUserId: '$otherUserId' },
+                lastMessage: { $first: '$message' },
+                lastMessageAt: { $first: '$createdAt' },
+                unreadCount: {
+                    $sum: {
+                        $cond: [
+                            { $and: [{ $eq: ['$receiverId', userId] }, { $eq: ['$isRead', false] }] },
+                            1,
+                            0
+                        ]
+                    }
+                }
+            }
+        },
+        { $sort: { lastMessageAt: -1 } },
+        {
+            $lookup: {
+                from: 'users',
+                localField: '_id.otherUserId',
+                foreignField: '_id',
+                as: 'user'
+            }
+        },
+        { $unwind: '$user' },
+        {
+            $project: {
+                _id: 0,
+                orderId: '$_id.orderId',
+                user: { _id: '$user._id', name: '$user.name' },
+                lastMessage: 1,
+                lastMessageAt: 1,
+                unreadCount: 1
+            }
         }
+    ]);
 
-        if (isReceiver && !message.readAt) {
-            conversations.get(key).unreadCount += 1;
-        }
-    }
-
-    res.json([...conversations.values()]);
+    res.json(conversations);
 }));
 
 router.get('/order/:orderId', validateId('orderId'), asyncHandler(async (req, res) => {
@@ -62,23 +82,23 @@ router.get('/order/:orderId', validateId('orderId'), asyncHandler(async (req, re
 }));
 
 router.post('/', asyncHandler(async (req, res) => {
-    const { orderId, receiverId, body } = req.body;
-    if (!mongoose.isValidObjectId(orderId) || !mongoose.isValidObjectId(receiverId) || !body?.trim()) {
-        return res.status(400).json({ message: 'orderId, receiverId and body are required' });
+    const { orderId, receiverId, message } = req.body;
+    if (!mongoose.isValidObjectId(orderId) || !mongoose.isValidObjectId(receiverId) || !message?.trim()) {
+        return res.status(400).json({ message: 'orderId, receiverId and message are required' });
     }
     const participants = await getParticipants(orderId);
     if (!participants) return res.status(404).json({ message: 'Order not found' });
     if (!participants.includes(String(req.user._id)) || !participants.includes(String(receiverId))) {
         return res.status(403).json({ message: 'Forbidden' });
     }
-    const message = await Message.create({ orderId, senderId: req.user._id, receiverId, body });
-    res.status(201).json(message);
+    const created = await Message.create({ orderId, senderId: req.user._id, receiverId, message });
+    res.status(201).json(created);
 }));
 
 router.patch('/order/:orderId/read', validateId('orderId'), asyncHandler(async (req, res) => {
     await Message.updateMany(
-        { orderId: req.params.orderId, receiverId: req.user._id, readAt: null },
-        { readAt: new Date() }
+        { orderId: req.params.orderId, receiverId: req.user._id, isRead: false },
+        { isRead: true }
     );
     res.status(204).end();
 }));

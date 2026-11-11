@@ -5,6 +5,8 @@ import { asyncHandler, requireUser } from '../middleware/auth.js'
 
 const router = Router()
 
+const ALLOWED_ROLES = ['customer', 'chef', 'courier']
+
 const buildName = (firstName, lastName, email) =>
   `${firstName} ${lastName}`.trim() || email.split('@')[0]
 
@@ -23,11 +25,15 @@ router.post('/sync', asyncHandler(async (req, res) => {
   const lastName = clerkUser.lastName ?? ''
   const name = buildName(firstName, lastName, email)
 
+  // O Clerk é a fonte da verdade do role (publicMetadata)
+  const clerkRole = clerkUser.publicMetadata?.role
+  const role = ALLOWED_ROLES.includes(clerkRole) ? clerkRole : 'customer'
+
   const existing = await User.exists({ clerkId: userId })
 
   const user = await User.findOneAndUpdate(
     { clerkId: userId },
-    { $set: { email, firstName, lastName, name } },
+    { $set: { email, firstName, lastName, name, role } },
     { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
   )
 
