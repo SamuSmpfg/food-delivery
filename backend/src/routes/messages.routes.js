@@ -17,11 +17,15 @@ const getParticipants = async (orderId) => {
 };
 
 router.get('/conversations', asyncHandler(async (req, res) => {
+    console.log(req.user._id)
+    
     const userId = new mongoose.Types.ObjectId(req.user._id);
+    const usersCollection = mongoose.model('User').collection.name;
 
     const conversations = await Message.aggregate([
         { $match: { $or: [{ senderId: userId }, { receiverId: userId }] } },
-        { $sort: { createdAt: -1 } },
+        { $addFields: { sortDate: { $ifNull: ['$createdAt', '$updatedAt'] } } },
+        { $sort: { sortDate: -1 } },
         {
             $addFields: {
                 otherUserId: {
@@ -33,7 +37,7 @@ router.get('/conversations', asyncHandler(async (req, res) => {
             $group: {
                 _id: { orderId: '$orderId', otherUserId: '$otherUserId' },
                 lastMessage: { $first: '$message' },
-                lastMessageAt: { $first: '$createdAt' },
+                lastMessageAt: { $first: '$sortDate' },
                 unreadCount: {
                     $sum: {
                         $cond: [
@@ -48,18 +52,22 @@ router.get('/conversations', asyncHandler(async (req, res) => {
         { $sort: { lastMessageAt: -1 } },
         {
             $lookup: {
-                from: 'users',
+                from: usersCollection,
                 localField: '_id.otherUserId',
                 foreignField: '_id',
                 as: 'user'
             }
         },
-        { $unwind: '$user' },
+        // não descarta a conversa se o usuário não for encontrado
+        { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
         {
             $project: {
                 _id: 0,
                 orderId: '$_id.orderId',
-                user: { _id: '$user._id', name: '$user.name' },
+                user: {
+                    _id: { $ifNull: ['$user._id', '$_id.otherUserId'] },
+                    name: { $ifNull: ['$user.name', 'Unknown user'] }
+                },
                 lastMessage: 1,
                 lastMessageAt: 1,
                 unreadCount: 1
@@ -77,7 +85,7 @@ router.get('/order/:orderId', validateId('orderId'), asyncHandler(async (req, re
     const messages = await Message.find({
         orderId: req.params.orderId,
         $or: [{ senderId: req.user._id }, { receiverId: req.user._id }]
-    }).sort({ createdAt: 1 });
+    }).sort({ createdAt: 1, updatedAt: 1 });
     res.json(messages);
 }));
 
