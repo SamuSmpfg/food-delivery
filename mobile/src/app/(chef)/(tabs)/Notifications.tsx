@@ -119,7 +119,7 @@ type MessagesListProps = {
   data: Conversation[]
   refreshing: boolean
   onRefresh: () => void
-  onRead: (orderId: string) => void
+  onRead: (orderId: string, userId: string) => void
 }
 
 const MessagesList = ({ data, refreshing, onRefresh, onRead }: MessagesListProps) => {
@@ -137,7 +137,7 @@ const MessagesList = ({ data, refreshing, onRefresh, onRead }: MessagesListProps
         const unread = item.unreadCount > 0
 
         return (
-          <TouchableOpacity style={styles.messageRow} onPress={() => onRead(item.orderId)}>
+          <TouchableOpacity style={styles.messageRow} onPress={() => onRead(item.orderId, item.user._id)}>
             <View style={styles.messageAvatar}>
               <Text style={styles.avatarInitial}>
                 {item.user.name.charAt(0).toUpperCase()}
@@ -245,18 +245,24 @@ const Notifications = () => {
     ])
   }
 
-  const markAsRead = async (orderId: string) => {
+  const markAsRead = async (orderId: string, userId: string) => {
     setConversations((current) =>
-      current.map((item) =>
-        item.orderId === orderId ? { ...item, unreadCount: 0 } : item
-      )
+    current.map((item) =>
+      item.orderId === orderId && item.user._id === userId
+        ? { ...item, unreadCount: 0 }
+        : item
     )
+  )
     try {
-      await request(`/api/messages/order/${orderId}/read`, await getToken(), 'PATCH')
-    } catch {
-      load()
-    }
+    await request(
+      `/api/messages/order/${orderId}/read?userId=${userId}`,
+      await getToken(),
+      'PATCH'
+    )
+  } catch {
+    load()
   }
+}
 
   const unreadMessages = conversations.reduce(
     (total, conversation) => total + conversation.unreadCount,

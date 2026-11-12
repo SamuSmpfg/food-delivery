@@ -18,14 +18,14 @@ const getParticipants = async (orderId) => {
 
 router.get('/conversations', asyncHandler(async (req, res) => {
     console.log(req.user._id)
-    
+
     const userId = new mongoose.Types.ObjectId(req.user._id);
     const usersCollection = mongoose.model('User').collection.name;
 
     const conversations = await Message.aggregate([
         { $match: { $or: [{ senderId: userId }, { receiverId: userId }] } },
         { $addFields: { sortDate: { $ifNull: ['$createdAt', '$updatedAt'] } } },
-        { $sort: { sortDate: -1 } },
+        { $sort: { sortDate: -1, _id: -1 } },
         {
             $addFields: {
                 otherUserId: {
@@ -49,7 +49,7 @@ router.get('/conversations', asyncHandler(async (req, res) => {
                 }
             }
         },
-        { $sort: { lastMessageAt: -1 } },
+        { $sort: { lastMessageAt: -1, '_id.orderId': -1, '_id.otherUserId': -1 } },
         {
             $lookup: {
                 from: usersCollection,
@@ -58,7 +58,6 @@ router.get('/conversations', asyncHandler(async (req, res) => {
                 as: 'user'
             }
         },
-        // não descarta a conversa se o usuário não for encontrado
         { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
         {
             $project: {
@@ -104,8 +103,18 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 router.patch('/order/:orderId/read', validateId('orderId'), asyncHandler(async (req, res) => {
+    const { userId } = req.query;
+    if (!mongoose.isValidObjectId(userId)) {
+        return res.status(400).json({ message: 'userId is required' });
+    }
+
     await Message.updateMany(
-        { orderId: req.params.orderId, receiverId: req.user._id, isRead: false },
+        {
+            orderId: req.params.orderId,
+            senderId: userId,
+            receiverId: req.user._id,
+            isRead: false
+        },
         { isRead: true }
     );
     res.status(204).end();
