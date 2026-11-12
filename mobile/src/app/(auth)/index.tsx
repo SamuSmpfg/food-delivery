@@ -35,7 +35,6 @@ export default function Index() {
     return () => clearTimeout(timer);
   }, []);
 
-  // A splash continua na tela até o Clerk terminar de carregar a sessão
   const ready = authLoaded && (!isSignedIn || userLoaded);
 
   if (!showSplash && ready) {
@@ -44,7 +43,7 @@ export default function Index() {
     }
 
     const isChef = user?.publicMetadata?.role === "chef";
-    return <Redirect href={isChef ? "/(chef)" : "/(tabs)/HomeScreen"} />;
+    return <Redirect href={isChef ? "/(chef)/(tabs)/(home)" : "/(tabs)/HomeScreen"} />;
   }
 
   return (

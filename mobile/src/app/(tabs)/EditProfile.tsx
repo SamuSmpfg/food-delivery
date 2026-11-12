@@ -20,7 +20,6 @@ const EditProfile = () => {
 
     const email = user?.primaryEmailAddress?.emailAddress ?? '';
 
-    // Preenche os campos quando o usuário carregar
     useEffect(() => {
         if (!user) return;
         setFirstName(user.firstName ?? '');

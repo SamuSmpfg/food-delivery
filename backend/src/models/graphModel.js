@@ -2,7 +2,6 @@ import mongoose from 'mongoose'
 
 const pointSchema = new mongoose.Schema(
     {
-        // início do intervalo (ex.: 2026-11-09T10:00 para "10AM"); o front formata o rótulo
         time: { type: Date, required: true },
         revenue: { type: Number, required: true, min: 0 }
     },
@@ -16,7 +15,6 @@ const graphSchema = new mongoose.Schema(
             enum: ["DAILY", "WEEKLY", "MONTHLY"],
             required: true
         },
-        // dia/semana/mês de referência
         date: { type: Date, required: true },
         points: { type: [pointSchema], default: [] }
     },

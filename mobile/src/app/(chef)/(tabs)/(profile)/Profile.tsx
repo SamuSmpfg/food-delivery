@@ -108,7 +108,9 @@ const Profile = (props: Props) => {
             </View>
 
               <View style={styles.personalInfoContainer}>
-                <TouchableOpacity onPress={() => router.push('/(chef)/(tabs)/(profile)/Reviews')}>
+                <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/(chef)/(tabs)/(profile)/Reviews', 
+                    params: { type: 'mine' }, })}>
                     <View style={styles.infosTouchableOpacity}>
                         <View style={styles.icons}>
                             <Feather name="command" size={24} color="#2AE1E1" />

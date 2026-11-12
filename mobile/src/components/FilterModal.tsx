@@ -31,7 +31,6 @@ const FilterModal = ({ visible, onClose, onApply }: FilterModalProps) => {
     )
   }
 
-  // Tocar de novo na opção já selecionada desmarca
   const toggleDeliverTime = (time: string) => {
     setDeliverTime((current) => (current === time ? null : time))
   }

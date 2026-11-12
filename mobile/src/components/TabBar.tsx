@@ -9,7 +9,7 @@ type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>
 type IconProps = { color: string };
 
 const hiddenOnTabs = ['AddNew'];
-const hiddenOnScreens = ['ChefFoodDetails', 'SucessfulWithdraw', 'Reviews', 'Profile'];
+const hiddenOnScreens = ['ChefFoodDetails', 'SucessfulWithdraw', 'Reviews', 'Profile', 'Adresses', 'AddAddress'];
 
 const icons: Record<string, (props: IconProps) => ReactNode> = {
     '(home)': (props) => <Feather name="grid" size={30} {...props} />,

@@ -50,6 +50,7 @@ const formatDate = (value: string) =>
   })
 
 const Reviews = () => {
+  console.log(useLocalSearchParams())
   const router = useRouter()
   const { id, type = 'restaurant' } = useLocalSearchParams<SearchParams>()
 

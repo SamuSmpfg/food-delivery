@@ -37,7 +37,6 @@ const matchesRestaurantCriteria = (restaurant: Restaurant, filters: RestaurantFi
     if (maxTime !== null && time !== null && time > maxTime) return false
   }
 
-  // Restaurantes vindos da API podem não ter "offers": trata como lista vazia
   const restaurantOffers: string[] = (restaurant as { offers?: string[] }).offers ?? []
   if (
     filters.offers.length > 0 &&
@@ -49,8 +48,6 @@ const matchesRestaurantCriteria = (restaurant: Restaurant, filters: RestaurantFi
   return true
 }
 
-// Por padrão usa os pratos do mock. Passe os pratos da API no 3º parâmetro
-// para filtrar por preço com os dados reais.
 export const matchesRestaurantFilters = (
   restaurant: Restaurant,
   filters: RestaurantFilters | null,
@@ -60,7 +57,6 @@ export const matchesRestaurantFilters = (
 
   if (!matchesRestaurantCriteria(restaurant, filters)) return false
 
-  // Preço: o restaurante precisa ter pelo menos um prato na faixa escolhida
   if (filters.pricing) {
     const tier = tierOfPricing(filters.pricing)
     const hasDishInTier = foods.some(

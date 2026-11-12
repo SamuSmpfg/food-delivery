@@ -25,7 +25,7 @@ router.post('/sync', asyncHandler(async (req, res) => {
   const lastName = clerkUser.lastName ?? ''
   const name = buildName(firstName, lastName, email)
 
-  // O Clerk é a fonte da verdade do role (publicMetadata)
+
   const clerkRole = clerkUser.publicMetadata?.role
   const role = ALLOWED_ROLES.includes(clerkRole) ? clerkRole : 'customer'
 

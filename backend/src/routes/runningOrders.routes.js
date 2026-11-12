@@ -5,9 +5,6 @@ const router = express.Router()
 
 const VALID_STATUS = ['PENDING', 'RUNNING', 'DONE', 'CANCELLED']
 
-// Lista pedidos por status + quantos são
-// GET /api/running-orders                  -> em andamento (RUNNING)
-// GET /api/running-orders?status=PENDING   -> pedidos novos (order requests)
 router.get('/', async (req, res) => {
     try {
         const status = (req.query.status || 'RUNNING').toUpperCase()
@@ -26,7 +23,6 @@ router.get('/', async (req, res) => {
     }
 })
 
-// Cria um pedido novo (entra como PENDING)
 router.post('/', async (req, res) => {
     try {
         const { foodType, name, image, orderId, price } = req.body
@@ -38,8 +34,6 @@ router.post('/', async (req, res) => {
     }
 })
 
-// Muda o status de um pedido, só se ele estiver no status de origem esperado.
-// Isso evita, por exemplo, finalizar um pedido que já foi cancelado.
 const changeStatus = (from, to) => async (req, res) => {
     try {
         const order = await RunningOrder.findOneAndUpdate(

@@ -1,7 +1,7 @@
 import AntDesign from '@expo/vector-icons/AntDesign'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import 'react-native-gesture-handler'
-import { Feather, Ionicons } from '@expo/vector-icons'
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Alert, Image } from 'react-native'
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFlatList } from '@gorhom/bottom-sheet'
@@ -11,9 +11,12 @@ import { useFont } from '@shopify/react-native-skia'
 import AnimatedText from '@/components/AnimatedText'
 import { useSharedValue } from 'react-native-reanimated'
 import HorizontalList from '@/components/HorizontalList'
-import { router } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { Order } from '../../../../../hooks/useOrders'
+import { useAddresses } from '@/lib/addressStore'
+import { useSelectedAddressId } from '@/lib/selectedAddressStore'
+import { useAccountAddress } from '../../../../../hooks/useAccountAddress'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL
 
@@ -41,6 +44,11 @@ type GraphResponse = {
   points: GraphPoint[]
 }
 
+type ReviewsSummary = {
+  average: number
+  total: number
+}
+
 type Period = 'DAILY' | 'WEEKLY'
 
 const PERIODS: Period[] = ['DAILY', 'WEEKLY']
@@ -52,7 +60,6 @@ const PERIOD_LABELS: Record<Period, string> = {
 
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// Faz a chamada à API já com o token do Clerk
 async function api<T>(path: string, token: string | null, method: string = 'GET'): Promise<T> {
   if (!API_URL) {
     throw new Error('EXPO_PUBLIC_API_URL não está definida no .env do app')
@@ -74,8 +81,6 @@ async function api<T>(path: string, token: string | null, method: string = 'GET'
   return res.json()
 }
 
-// Transforma o ponto da API no formato que o LineChart usa.
-// Se o seu LineChart espera outros nomes de campo, ajuste só aqui.
 function toChartData(points: GraphPoint[], period: Period) {
   return points.map((p) => {
     const d = new Date(p.time)
@@ -102,6 +107,16 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
   const selectedValue = useSharedValue(0)
   const { getToken } = useAuth()
 
+  const addresses = useAddresses();
+  const selectedAddressId = useSelectedAddressId();
+
+  const selectedAddress = addresses.find((item) => item.id === selectedAddressId);
+  const selectedAddressText = selectedAddress
+    ? `${selectedAddress.address}${selectedAddress.apartment ? ` - Apt ${selectedAddress.apartment}` : ''}`
+    : null;
+    
+  const { address, loading } = useAccountAddress();
+
   const getTokenRef = useRef(getToken)
   getTokenRef.current = getToken
 
@@ -110,18 +125,17 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
   const [period, setPeriod] = useState<Period>('DAILY')
   const [graph, setGraph] = useState<GraphResponse | null>(null)
   const [graphError, setGraphError] = useState<string | null>(null)
+  const [reviewsSummary, setReviewsSummary] = useState<ReviewsSummary>({ average: 0, total: 0 })
 
   const font = useFont(
     require('@expo-google-fonts/sen/700Bold/Sen_700Bold.ttf'),
     24
   )
 
-  // Cada sheet tem a sua própria ref
   const runningSheetRef = useRef<BottomSheetModal>(null)
   const requestSheetRef = useRef<BottomSheetModal>(null)
   const snapPoints = useMemo(() => ['75%'], [])
 
-  // Busca pedidos por status (RUNNING ou PENDING)
   const loadOrders = useCallback(async () => {
     try {
       const token = await getTokenRef.current()
@@ -142,12 +156,27 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
     }
   }, [])
 
+  const loadReviewsSummary = useCallback(async () => {
+    try {
+      const token = await getTokenRef.current()
+      const res = await api<ReviewsSummary>('/api/reviews/mine/summary', token)
+      setReviewsSummary({ average: res.average ?? 0, total: res.total ?? 0 })
+    } catch (error) {
+      console.error('Erro ao carregar resumo das reviews:', error)
+    }
+  }, [])
+
   useEffect(() => {
     loadOrders()
     loadOrderRequests()
   }, [loadOrders, loadOrderRequests])
 
-  // Busca o gráfico sempre que o período mudar
+  useFocusEffect(
+    useCallback(() => {
+      loadReviewsSummary()
+    }, [loadReviewsSummary])
+  )
+
   useEffect(() => {
     let cancelled = false
 
@@ -183,8 +212,15 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
     [graph, period]
   )
 
+  const ratingText = reviewsSummary.total > 0 ? reviewsSummary.average.toFixed(1) : '--'
+  const totalReviewsText = `Total ${reviewsSummary.total} ${reviewsSummary.total === 1 ? 'Review' : 'Reviews'}`
+
   const handlePeriodPress = useCallback(() => {
     setPeriod((current) => PERIODS[(PERIODS.indexOf(current) + 1) % PERIODS.length])
+  }, [])
+
+  const handleSeeAllReviews = useCallback(() => {
+    router.push({ pathname: '/(chef)/(tabs)/(profile)/Reviews', params: { type: 'mine' } })
   }, [])
 
   const handleSheetOpenRunningOrders = useCallback(() => {
@@ -238,7 +274,6 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
     [onCancel]
   )
 
-  // Order request: aceitar -> sai de "requests" e entra em "running orders"
   const handleAcceptRequest = useCallback(
     async (item: RunningOrder) => {
       try {
@@ -254,7 +289,6 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
     []
   )
 
-  // Order request: recusar (com confirmação)
   const handleDeclineRequest = useCallback(
     (item: RunningOrder) => {
       Alert.alert(
@@ -311,11 +345,21 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
             <View style={styles.locationContainer}>
               <Text style={styles.addressLabel}>Location</Text>
 
-              <TouchableOpacity>
-                <View style={styles.addressContainer}>
-                  <Text style={styles.addressTouchableOpacity}>Add an address</Text>
-                  <Ionicons name="caret-down" size={12} color="#181C2E" />
-                </View>
+              <TouchableOpacity
+                style={styles.locationUserPopUp}
+                activeOpacity={0.7}
+                onPress={() =>
+                  router.push({ pathname: '/(chef)/(tabs)/(home)/Adresses', params: { select: 'true' } })
+                }
+              >
+                <Text
+                  style={styles.locationUser}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {selectedAddressText ?? (loading ? 'Loading...' : address || 'Add an address')}
+                </Text>
+                <MaterialCommunityIcons name="menu-down" size={24} color="#676767" />
               </TouchableOpacity>
             </View>
 
@@ -374,7 +418,7 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
         <View style={styles.reviewContainer}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={styles.containerHeaderTitle}>Reviews</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={handleSeeAllReviews}>
               <Text style={styles.seeAllButton}>See All Reviews</Text>
             </TouchableOpacity>
           </View>
@@ -382,9 +426,9 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
           <View style={{ flexDirection: 'row', paddingTop: 32, alignItems: 'center' }}>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <AntDesign name="star" size={24} color="#FB6D3A" />
-              <Text style={styles.restaurantRating}>4.9</Text>
+              <Text style={styles.restaurantRating}>{ratingText}</Text>
             </View>
-            <Text style={styles.totalReviews}>Total 20 Reviews</Text>
+            <Text style={styles.totalReviews}>{totalReviewsText}</Text>
           </View>
         </View>
 
@@ -394,8 +438,6 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
         </SafeAreaView>
         </ScrollView>
 
-
-      {/* Sheet: Running orders */}
       <BottomSheetModal
         ref={runningSheetRef}
         snapPoints={snapPoints}
@@ -447,7 +489,6 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
         />
       </BottomSheetModal>
 
-      {/* Sheet: Order requests */}
       <BottomSheetModal
         ref={requestSheetRef}
         snapPoints={snapPoints}
@@ -734,5 +775,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Sen_400Regular',
     fontSize: 14,
     marginLeft: 16
-  }
+  },
+    locationUserPopUp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    maxWidth: '100%'
+  },
+    locationUser: {
+    flexShrink: 1,
+    color: '#676767',
+    fontSize: 12,
+    fontFamily: 'Sen_400Regular',
+    maxWidth: 160
+  },
 })
