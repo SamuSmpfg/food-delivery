@@ -234,7 +234,7 @@ const AddAddress = () => {
             style={styles.input}
             value={apartment}
             onChangeText={setApartment}
-            placeholder="Apartamento / complemento"
+            placeholder="Apartment / unit detail"
             placeholderTextColor="#A0A5BA"
           />
 

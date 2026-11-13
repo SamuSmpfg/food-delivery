@@ -30,6 +30,7 @@ const EditProfile = () => {
     const handleSave = async () => {
         if (!user || saving) return;
 
+
         if (!firstName.trim()) {
             Alert.alert('Warning', 'The name can not be empty.');
             return;
@@ -53,6 +54,13 @@ const EditProfile = () => {
             setSaving(false);
         }
     };
+
+        const confirmSave = () => {
+    Alert.alert('Save changes', `Are you sure you want to save the changes?`, [
+      { text: 'No, cancel', style: 'cancel' },
+      { text: 'Yes, save', onPress: () => handleSave() }
+    ])
+  }
 
   return (
         <KeyboardAvoidingView
@@ -154,7 +162,7 @@ const EditProfile = () => {
                 {saving ? (
                     <ActivityIndicator color="#FFFFFF" style={{ padding: 24 }} />
                 ) : (
-                    <Text style={styles.saveTouchableOpacityText}>SAVE</Text>
+                    <Text style={styles.saveTouchableOpacityText} onPress={confirmSave}>SAVE</Text>
                 )}
             </TouchableOpacity>
 

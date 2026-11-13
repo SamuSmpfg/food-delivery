@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import 'react-native-gesture-handler'
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Alert, Image } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Alert, Image, ActivityIndicator } from 'react-native'
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFlatList } from '@gorhom/bottom-sheet'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import LineChart from '@/components/LineChart'
@@ -12,11 +12,12 @@ import AnimatedText from '@/components/AnimatedText'
 import { useSharedValue } from 'react-native-reanimated'
 import HorizontalList from '@/components/HorizontalList'
 import { router, useFocusEffect } from 'expo-router'
-import { useAuth } from '@clerk/clerk-expo'
+import { useAuth, useUser } from '@clerk/clerk-expo'
 import { Order } from '../../../../../hooks/useOrders'
 import { useAddresses } from '@/lib/addressStore'
 import { useSelectedAddressId } from '@/lib/selectedAddressStore'
 import { useAccountAddress } from '../../../../../hooks/useAccountAddress'
+import { useProfileImagePicker } from '../../../../../hooks/useProfileImagePicker'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL
 
@@ -126,6 +127,8 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
   const [graph, setGraph] = useState<GraphResponse | null>(null)
   const [graphError, setGraphError] = useState<string | null>(null)
   const [reviewsSummary, setReviewsSummary] = useState<ReviewsSummary>({ average: 0, total: 0 })
+  const { user } = useUser();
+  const { pickImage, uploading } = useProfileImagePicker();
 
   const font = useFont(
     require('@expo-google-fonts/sen/700Bold/Sen_700Bold.ttf'),
@@ -338,7 +341,9 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
         <View style={styles.safeAreaContainer}>
           <View style={styles.headerContainer}>
 
-            <TouchableOpacity style={styles.linesTouchableOpacity}>
+            <TouchableOpacity 
+            style={styles.linesTouchableOpacity} 
+            onPress={() => router.navigate('/(chef)/(tabs)/(profile)/Profile')}>
               <AntDesign name="align-left" size={24} color="#181C2E" />
             </TouchableOpacity>
 
@@ -363,7 +368,27 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.user} />
+            <View style={{marginLeft: 'auto'}}>
+              <View>
+                    {user?.hasImage ? (
+                        <Image source={{ uri: user.imageUrl }} style={styles.avatar} />
+                    ) : (
+                        <View style={styles.avatar} />
+                    )}
+
+                    {uploading && (
+                        <View style={styles.avatarLoading}>
+                            <ActivityIndicator color="#FFFFFF" />
+                        </View>
+                    )}
+
+                    <TouchableOpacity
+                        style={styles.editTouchableOpacity}
+                        onPress={pickImage}
+                        disabled={uploading}
+                    />
+                </View>
+            </View>
 
           </View>
 
@@ -789,4 +814,33 @@ const styles = StyleSheet.create({
     fontFamily: 'Sen_400Regular',
     maxWidth: 160
   },
+      avatarLoading: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 100,
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+        editTouchableOpacity: {
+        backgroundColor: '#98A8B8',
+        width: 55,
+        height: 55,
+        borderRadius: 100,
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+    },
+        avatar: {
+        width: 55,
+        height: 55,
+        borderRadius: 100,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
 })
