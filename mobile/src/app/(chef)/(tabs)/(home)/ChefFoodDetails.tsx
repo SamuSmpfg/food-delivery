@@ -16,6 +16,7 @@ type Ingredient = {
   id: string
   name: string
   allergy?: boolean
+  kind?: string
 }
 
 type Food = {
@@ -37,7 +38,7 @@ type DishDto = {
   classification: string
   deliveryMode: string
   sizes: { label: string; price: number }[]
-  ingredients: { name: string; kind: string }[]
+  ingredients: { name: string; kind: string; allergy?: boolean }[]
   rating: number
   reviewsCount: number
 }
@@ -46,8 +47,8 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL
 
 const CLASSIFICATIONS = ['Breakfast', 'Lunch', 'Dinner']
 const DELIVERY_MODES = ['Delivery', 'Pickup', 'Dine-in']
-const ALLERGY_KIND = 'allergy'
-const DEFAULT_KIND = 'other'
+// Deve bater com o enum de `kind` do ingredientSchema no backend
+const DEFAULT_KIND = 'Basic'
 
 const EMPTY_FOOD: Food = {
   name: '',
@@ -59,6 +60,30 @@ const EMPTY_FOOD: Food = {
   ingredients: [],
 }
 
+const PLACEHOLDER_FOOD: Food = {
+  name: 'Chicken Thai Biriyani',
+  price: '60',
+  address: 'Kentucky 39495',
+  description:
+    'Lorem ipsum dolor sit amet, consectetur Maton adipiscing elit. Bibendum in vel, mattis et amet dui mauris turpis.',
+  classification: CLASSIFICATIONS[0],
+  deliveryMode: DELIVERY_MODES[0],
+  ingredients: [
+    { id: 'p-salt', name: 'Salt' },
+    { id: 'p-chicken', name: 'Chicken' },
+    { id: 'p-onion', name: 'Onion', allergy: true },
+    { id: 'p-garlic', name: 'Garlic' },
+    { id: 'p-peppers', name: 'Peppers', allergy: true },
+    { id: 'p-ginger', name: 'Ginger' },
+    { id: 'p-broccoli', name: 'Broccoli' },
+    { id: 'p-orange', name: 'Orange' },
+    { id: 'p-walnut', name: 'Walnut' },
+  ],
+}
+
+const PLACEHOLDER_RATING = '4.9'
+const PLACEHOLDER_REVIEWS = 10
+
 const toFood = (d: DishDto): Food => ({
   name: d.name ?? '',
   price: String(d.sizes?.[0]?.price ?? ''),
@@ -69,7 +94,8 @@ const toFood = (d: DishDto): Food => ({
   ingredients: (d.ingredients ?? []).map((i, idx) => ({
     id: `${idx}-${i.name}`,
     name: i.name,
-    allergy: i.kind === ALLERGY_KIND,
+    allergy: !!i.allergy,
+    kind: i.kind,
   })),
 })
 
@@ -86,7 +112,8 @@ const toPayload = (changes: Partial<Food>, dish: DishDto) => {
   if (changes.ingredients !== undefined) {
     payload.ingredients = changes.ingredients.map((i) => ({
       name: i.name,
-      kind: i.allergy ? ALLERGY_KIND : DEFAULT_KIND,
+      kind: i.kind || DEFAULT_KIND,
+      allergy: !!i.allergy,
     }))
   }
   return payload
@@ -113,6 +140,7 @@ const ChefFoodDetails = (props: Props) => {
   const listRef = useRef<FlatList<Ingredient>>(null)
 
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [dish, setDish] = useState<DishDto | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [food, setFood] = useState<Food>(EMPTY_FOOD)
@@ -131,6 +159,12 @@ const ChefFoodDetails = (props: Props) => {
   isEditingRef.current = isEditing
 
   const data = isEditing ? draft : food
+
+  const listData = isEditing
+    ? draft.ingredients
+    : food.ingredients.length
+      ? food.ingredients
+      : PLACEHOLDER_FOOD.ingredients
 
   useEffect(() => {
     if (!dishId) {
@@ -165,11 +199,7 @@ const ChefFoodDetails = (props: Props) => {
     const changes = getChanges(syncedRef.current, current)
     if (Object.keys(changes).length === 0) return
 
-    const payload = toPayload(changes, dishRef.current)
-    if (Object.keys(payload).length === 0) {
-      syncedRef.current = current
-      return
-    }
+    const payload = toPayload({ ...changes, ingredients: current.ingredients }, dishRef.current)
 
     const token = await getToken()
     const res = await fetch(`${API_URL}/api/dishes/${dishId}`, {
@@ -180,14 +210,19 @@ const ChefFoodDetails = (props: Props) => {
       },
       body: JSON.stringify(payload),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
-    const updated = await res.json().catch(() => null)
-    if (updated?._id) {
-      setDish(updated)
-      dishRef.current = updated
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw new Error(body?.message ?? `HTTP ${res.status}`)
     }
-    syncedRef.current = current
+
+    const updated: DishDto | null = await res.json().catch(() => null)
+    if (!updated?._id) throw new Error('Resposta inválida do servidor')
+
+    const merged: DishDto = { ...updated, restaurantId: dishRef.current.restaurantId }
+    setDish(merged)
+    dishRef.current = merged
+    syncedRef.current = toFood(merged)
   }
 
   const syncChanges = (current: Food) => {
@@ -211,12 +246,22 @@ const ChefFoodDetails = (props: Props) => {
   }
 
   const handleSave = async () => {
+    if (saving) return
+    setSaving(true)
     try {
       await syncChanges(draft)
-      setFood(draft)
+      const saved = dishRef.current ? toFood(dishRef.current) : draft
+      setFood(saved)
+      setDraft(saved)
+      syncedRef.current = saved
       setIsEditing(false)
     } catch (e) {
-      Alert.alert('Erro ao salvar', 'Não foi possível salvar as alterações. Tente novamente.')
+      Alert.alert(
+        'Erro ao salvar',
+        e instanceof Error ? e.message : 'Não foi possível salvar as alterações. Tente novamente.'
+      )
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -250,7 +295,10 @@ const ChefFoodDetails = (props: Props) => {
   const addIngredient = () => {
     const name = newIngredient.trim()
     if (!name) return
-    updateField('ingredients', [...draft.ingredients, { id: String(Date.now()), name }])
+    updateField('ingredients', [
+      ...draft.ingredients,
+      { id: String(Date.now()), name, kind: DEFAULT_KIND, allergy: false },
+    ])
     setNewIngredient('')
   }
 
@@ -320,11 +368,11 @@ const ChefFoodDetails = (props: Props) => {
               style={[styles.foodNameAndPrice, styles.input, { flex: 1, marginRight: 12 }]}
               value={data.name}
               onChangeText={(t) => updateField('name', t)}
-              placeholder="Food name"
+              placeholder={PLACEHOLDER_FOOD.name}
               placeholderTextColor={'#9C9BA6'}
             />
           ) : (
-            <Text style={styles.foodNameAndPrice}>{data.name}</Text>
+            <Text style={styles.foodNameAndPrice}>{data.name || PLACEHOLDER_FOOD.name}</Text>
           )}
 
           {isEditing ? (
@@ -335,23 +383,27 @@ const ChefFoodDetails = (props: Props) => {
                 value={data.price}
                 onChangeText={(t) => updateField('price', t.replace(/[^0-9.]/g, ''))}
                 keyboardType="decimal-pad"
-                placeholder="0"
+                placeholder={PLACEHOLDER_FOOD.price}
                 placeholderTextColor={'#9C9BA6'}
               />
             </View>
           ) : (
-            <Text style={styles.foodNameAndPrice}>${data.price}</Text>
+            <Text style={styles.foodNameAndPrice}>${data.price || PLACEHOLDER_FOOD.price}</Text>
           )}
         </View>
 
         <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center' }}>
           <FontAwesome6 name="location-dot" size={16} color="#AFAFAF" />
-          <Text style={styles.addressAndReviews}>{data.address}</Text>
+          <Text style={styles.addressAndReviews}>{data.address || PLACEHOLDER_FOOD.address}</Text>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
             <AntDesign name="star" size={24} color="#FB6D3A" />
-            <Text style={styles.rating}>{dish?.rating ? dish.rating.toFixed(1) : '-'}</Text>
-            <Text style={styles.addressAndReviews}>({dish?.reviewsCount ?? 0} reviews)</Text>
+            <Text style={styles.rating}>
+              {dish ? (dish.rating ? dish.rating.toFixed(1) : '-') : PLACEHOLDER_RATING}
+            </Text>
+            <Text style={styles.addressAndReviews}>
+              ({dish ? dish.reviewsCount ?? 0 : PLACEHOLDER_REVIEWS} reviews)
+            </Text>
           </View>
         </View>
       </View>
@@ -393,10 +445,11 @@ const ChefFoodDetails = (props: Props) => {
           onFocus={() => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 250)}
           multiline
           textAlignVertical="top"
-          placeholder="Description"
+          placeholder={PLACEHOLDER_FOOD.description}
+          placeholderTextColor={'#9C9BA6'}
         />
       ) : (
-        <Text style={styles.descriptionText}>{data.description}</Text>
+        <Text style={styles.descriptionText}>{data.description || PLACEHOLDER_FOOD.description}</Text>
       )}
     </View>
   )
@@ -421,12 +474,16 @@ const ChefFoodDetails = (props: Props) => {
         <Text style={styles.title}>Food Details</Text>
 
         {isEditing && (
-          <TouchableOpacity onPress={handleCancel}>
+          <TouchableOpacity onPress={handleCancel} disabled={saving}>
             <Text style={styles.cancelTouchableOpacity}>CANCEL</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity onPress={isEditing ? confirmSave : handleEdit}>
-          <Text style={styles.editTouchableOpacity}>{isEditing ? 'SAVE' : 'EDIT'}</Text>
+        <TouchableOpacity onPress={isEditing ? confirmSave : handleEdit} disabled={saving}>
+          {saving ? (
+            <ActivityIndicator color="#FB6D3A" />
+          ) : (
+            <Text style={styles.editTouchableOpacity}>{isEditing ? 'SAVE' : 'EDIT'}</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -436,7 +493,7 @@ const ChefFoodDetails = (props: Props) => {
       >
         <FlatList
           ref={listRef}
-          data={data.ingredients}
+          data={listData}
           extraData={isEditing}
           keyExtractor={(item) => item.id}
           renderItem={renderIngredient}

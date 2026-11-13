@@ -22,6 +22,14 @@ router.get('/', asyncHandler(async (req, res) => {
     res.json(dishes);
 }));
 
+router.get('/popular', requireUser, requireRole('chef'), asyncHandler(async (req, res) => {
+    const restaurants = await Restaurant.find({ ownerId: req.user._id }).select('_id');
+    const dishes = await Dish.find({ restaurantId: { $in: restaurants.map((r) => r._id) } })
+        .sort({ orderCount: -1, rating: -1, reviewsCount: -1 })
+        .limit(10);
+    res.json(dishes);
+}));
+
 router.get('/:id', validateId(), asyncHandler(async (req, res) => {
     const dish = await Dish.findById(req.params.id).populate('restaurantId', 'name image rating deliveryFee isOpen');
     if (!dish) return res.status(404).json({ message: 'Dish not found' });

@@ -1,10 +1,10 @@
 import AntDesign from '@expo/vector-icons/AntDesign'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import 'react-native-gesture-handler'
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Alert, Image, ActivityIndicator } from 'react-native'
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFlatList } from '@gorhom/bottom-sheet'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Alert, Image, ActivityIndicator, RefreshControl } from 'react-native'
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFlatList } from '@gorhom/bottom-sheet'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import LineChart from '@/components/LineChart'
 import { useFont } from '@shopify/react-native-skia'
@@ -13,7 +13,6 @@ import { useSharedValue } from 'react-native-reanimated'
 import HorizontalList from '@/components/HorizontalList'
 import { router, useFocusEffect } from 'expo-router'
 import { useAuth, useUser } from '@clerk/clerk-expo'
-import { Order } from '../../../../../hooks/useOrders'
 import { useAddresses } from '@/lib/addressStore'
 import { useSelectedAddressId } from '@/lib/selectedAddressStore'
 import { useAccountAddress } from '../../../../../hooks/useAccountAddress'
@@ -95,40 +94,44 @@ function toChartData(points: GraphPoint[], period: Period) {
 }
 
 type ChefHomeProps = {
-  order: Order
-  onTrack?: () => void
   onCancel?: (orderId?: string | number) => void
 }
 
-export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
+export default function ChefHome({ onCancel }: ChefHomeProps) {
   const CHART_HEIGHT = 180
   const CHART_MARGIN = 10
-  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const { width: SCREEN_WIDTH } = useWindowDimensions()
   const CHART_WIDTH = SCREEN_WIDTH - 82
   const selectedValue = useSharedValue(0)
-  const { getToken } = useAuth()
+  const { getToken, isLoaded, isSignedIn } = useAuth()
+  const authReady = !!isLoaded && !!isSignedIn
 
-  const addresses = useAddresses();
-  const selectedAddressId = useSelectedAddressId();
+  const addresses = useAddresses()
+  const selectedAddressId = useSelectedAddressId()
 
-  const selectedAddress = addresses.find((item) => item.id === selectedAddressId);
+  const selectedAddress = addresses.find((item) => item.id === selectedAddressId)
   const selectedAddressText = selectedAddress
     ? `${selectedAddress.address}${selectedAddress.apartment ? ` - Apt ${selectedAddress.apartment}` : ''}`
-    : null;
-    
-  const { address, loading } = useAccountAddress();
+    : null
+
+  const { address, loading } = useAccountAddress()
 
   const getTokenRef = useRef(getToken)
   getTokenRef.current = getToken
 
+  const graphRequestRef = useRef(0)
+
   const [runningOrders, setRunningOrders] = useState<RunningOrder[]>([])
   const [orderRequests, setOrderRequests] = useState<RunningOrder[]>([])
+  const [ordersLoaded, setOrdersLoaded] = useState(false)
+  const [requestsLoaded, setRequestsLoaded] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [period, setPeriod] = useState<Period>('DAILY')
   const [graph, setGraph] = useState<GraphResponse | null>(null)
   const [graphError, setGraphError] = useState<string | null>(null)
   const [reviewsSummary, setReviewsSummary] = useState<ReviewsSummary>({ average: 0, total: 0 })
-  const { user } = useUser();
-  const { pickImage, uploading } = useProfileImagePicker();
+  const { user } = useUser()
+  const { pickImage, uploading } = useProfileImagePicker()
 
   const font = useFont(
     require('@expo-google-fonts/sen/700Bold/Sen_700Bold.ttf'),
@@ -140,26 +143,33 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
   const snapPoints = useMemo(() => ['75%'], [])
 
   const loadOrders = useCallback(async () => {
+    if (!authReady) return
     try {
       const token = await getTokenRef.current()
       const res = await api<{ count: number; orders: RunningOrder[] }>('/api/running-orders', token)
       setRunningOrders(res.orders)
     } catch (error) {
       console.error('Erro ao carregar pedidos:', error)
+    } finally {
+      setOrdersLoaded(true)
     }
-  }, [])
+  }, [authReady])
 
   const loadOrderRequests = useCallback(async () => {
+    if (!authReady) return
     try {
       const token = await getTokenRef.current()
       const res = await api<{ count: number; orders: RunningOrder[] }>('/api/running-orders?status=PENDING', token)
       setOrderRequests(res.orders)
     } catch (error) {
       console.error('Erro ao carregar order requests:', error)
+    } finally {
+      setRequestsLoaded(true)
     }
-  }, [])
+  }, [authReady])
 
   const loadReviewsSummary = useCallback(async () => {
+    if (!authReady) return
     try {
       const token = await getTokenRef.current()
       const res = await api<ReviewsSummary>('/api/reviews/mine/summary', token)
@@ -167,48 +177,48 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
     } catch (error) {
       console.error('Erro ao carregar resumo das reviews:', error)
     }
-  }, [])
+  }, [authReady])
 
-  useEffect(() => {
-    loadOrders()
-    loadOrderRequests()
-  }, [loadOrders, loadOrderRequests])
+  const loadGraph = useCallback(async () => {
+    if (!authReady) return
+    const requestId = ++graphRequestRef.current
+
+    try {
+      setGraphError(null)
+
+      const token = await getTokenRef.current()
+      const res = await api<GraphResponse>(`/api/graph?period=${period}`, token)
+
+      if (requestId !== graphRequestRef.current) return
+
+      setGraph(res)
+      selectedValue.value = res.totalRevenue
+    } catch (error) {
+      if (requestId !== graphRequestRef.current) return
+
+      console.error('Erro ao carregar gráfico:', error)
+      setGraph(null)
+      setGraphError(error instanceof Error ? error.message : 'Erro ao carregar gráfico')
+    }
+  }, [period, selectedValue, authReady])
 
   useFocusEffect(
     useCallback(() => {
+      loadOrders()
+      loadOrderRequests()
       loadReviewsSummary()
-    }, [loadReviewsSummary])
+    }, [loadOrders, loadOrderRequests, loadReviewsSummary])
   )
 
   useEffect(() => {
-    let cancelled = false
-
-    async function loadGraph() {
-      try {
-        setGraphError(null)
-
-        const token = await getTokenRef.current()
-        const res = await api<GraphResponse>(`/api/graph?period=${period}`, token)
-
-        if (cancelled) return
-
-        setGraph(res)
-        selectedValue.value = res.totalRevenue
-      } catch (error) {
-        if (cancelled) return
-
-        console.error('Erro ao carregar gráfico:', error)
-        setGraph(null)
-        setGraphError(error instanceof Error ? error.message : 'Erro ao carregar gráfico')
-      }
-    }
-
     loadGraph()
+  }, [loadGraph])
 
-    return () => {
-      cancelled = true
-    }
-  }, [period])
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await Promise.all([loadOrders(), loadOrderRequests(), loadReviewsSummary(), loadGraph()])
+    setRefreshing(false)
+  }, [loadOrders, loadOrderRequests, loadReviewsSummary, loadGraph])
 
   const chartData = useMemo(
     () => toChartData(graph?.points ?? [], period),
@@ -222,9 +232,9 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
     setPeriod((current) => PERIODS[(PERIODS.indexOf(current) + 1) % PERIODS.length])
   }, [])
 
- const handleSeeAllReviews = useCallback(() => {
-  router.push({ pathname: '/(chef)/(tabs)/(home)/Reviews', params: { type: 'mine' } })
-}, [])
+  const handleSeeAllReviews = useCallback(() => {
+    router.push({ pathname: '/(chef)/(tabs)/(home)/Reviews', params: { type: 'mine' } })
+  }, [])
 
   const handleSheetOpenRunningOrders = useCallback(() => {
     loadOrders()
@@ -242,11 +252,12 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
         const token = await getTokenRef.current()
         await api(`/api/running-orders/${item._id}/done`, token, 'PATCH')
         setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
+        loadGraph()
       } catch (error) {
         Alert.alert('Error', error instanceof Error ? error.message : 'Could not finish the order')
       }
     },
-    []
+    [loadGraph]
   )
 
   const handleCancelPress = useCallback(
@@ -333,132 +344,142 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
     []
   )
 
-  if (!font) { return null };
+  if (!font) { return null }
+
   return (
     <>
-      <ScrollView  style={styles.rootContainer}>
-    <SafeAreaView style={styles.scrollView}>
-        <View style={styles.safeAreaContainer}>
-          <View style={styles.headerContainer}>
-
-            <TouchableOpacity 
-            style={styles.linesTouchableOpacity} 
-            onPress={() => router.navigate('/(chef)/(tabs)/(profile)/Profile')}>
-              <AntDesign name="align-left" size={24} color="#181C2E" />
-            </TouchableOpacity>
-
-            <View style={styles.locationContainer}>
-              <Text style={styles.addressLabel}>Location</Text>
+      <ScrollView
+        style={styles.rootContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#FF7622" colors={['#FF7622']} />
+        }
+      >
+        <SafeAreaView style={styles.scrollView}>
+          <View style={styles.safeAreaContainer}>
+            <View style={styles.headerContainer}>
 
               <TouchableOpacity
-                style={styles.locationUserPopUp}
-                activeOpacity={0.7}
-                onPress={() =>
-                  router.push({ pathname: '/(chef)/(tabs)/(home)/Adresses', params: { select: 'true' } })
-                }
-              >
-                <Text
-                  style={styles.locationUser}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
+                style={styles.linesTouchableOpacity}
+                onPress={() => router.navigate('/(chef)/(tabs)/(profile)/Profile')}>
+                <AntDesign name="align-left" size={24} color="#181C2E" />
+              </TouchableOpacity>
+
+              <View style={styles.locationContainer}>
+                <Text style={styles.addressLabel}>Location</Text>
+
+                <TouchableOpacity
+                  style={styles.locationUserPopUp}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    router.push({ pathname: '/(chef)/(tabs)/(home)/Adresses', params: { select: 'true' } })
+                  }
                 >
-                  {selectedAddressText ?? (loading ? 'Loading...' : address || 'Add an address')}
+                  <Text
+                    style={styles.locationUser}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {selectedAddressText ?? (loading ? 'Loading...' : address || 'Add an address')}
+                  </Text>
+                  <MaterialCommunityIcons name="menu-down" size={24} color="#676767" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ marginLeft: 'auto' }}>
+                <TouchableOpacity
+                  style={styles.editTouchableOpacity}
+                  onPress={pickImage}
+                  disabled={uploading}>
+                  {user?.hasImage ? (
+                    <Image source={{ uri: user.imageUrl }} style={styles.editTouchableOpacity} />
+                  ) : (
+                    <View style={styles.avatar} />
+                  )}
+
+                  {uploading && (
+                    <View style={styles.avatarLoading}>
+                      <ActivityIndicator color="#FFFFFF" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+            </View>
+
+            <View style={styles.ordersContainer}>
+              <TouchableOpacity style={styles.orderBox} onPress={handleSheetOpenRunningOrders}>
+                <Text style={styles.orderNumbers}>
+                  {ordersLoaded ? String(runningOrders.length).padStart(2, '0') : '--'}
                 </Text>
-                <MaterialCommunityIcons name="menu-down" size={24} color="#676767" />
+                <Text style={styles.orderLabel}>RUNNING ORDERS</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.orderBox} onPress={handleSheetOpenRequestOrders}>
+                <Text style={styles.orderNumbers}>
+                  {requestsLoaded ? String(orderRequests.length).padStart(2, '0') : '--'}
+                </Text>
+                <Text style={styles.orderLabel}>ORDER REQUEST</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.graphContainer}>
+            <View style={styles.graphHeader}>
+              <Text style={styles.containerHeaderTitle}>Total Revenue</Text>
+              <TouchableOpacity style={styles.graphExpandButton} onPress={handlePeriodPress}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={styles.graphExpandButtonText}>{PERIOD_LABELS[period]}</Text>
+                  <Feather name="chevron-down" size={12} color="#181C2E" />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity>
+                <Text style={styles.seeAllButton}>See Details</Text>
+              </TouchableOpacity>
+            </View>
+            <AnimatedText font={font} selectedValue={selectedValue} />
+            <GestureHandlerRootView style={{ height: CHART_HEIGHT }}>
+              {graphError ? (
+                <View style={styles.emptyChart}>
+                  <Text style={styles.chartErrorText}>{graphError}</Text>
+                </View>
+              ) : chartData.length >= 2 ? (
+                <LineChart
+                  key={period}
+                  data={chartData}
+                  chartWidth={CHART_WIDTH}
+                  chartHeight={CHART_HEIGHT}
+                  chartMargin={CHART_MARGIN}
+                  selectedValue={selectedValue}
+                />
+              ) : (
+                <View style={styles.emptyChart}>
+                  <Text style={styles.containerHeaderTitle}>No revenue data yet</Text>
+                </View>
+              )}
+            </GestureHandlerRootView>
+          </View>
+
+          <View style={styles.reviewContainer}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={styles.containerHeaderTitle}>Reviews</Text>
+              <TouchableOpacity onPress={handleSeeAllReviews}>
+                <Text style={styles.seeAllButton}>See All Reviews</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={{marginLeft: 'auto'}}>
-              <TouchableOpacity
-                        style={styles.editTouchableOpacity}
-                        onPress={pickImage}
-                        disabled={uploading}>
-                    {user?.hasImage ? (
-                        <Image source={{ uri: user.imageUrl }} style={styles.editTouchableOpacity} />
-                    ) : (
-                        <View style={styles.avatar} />
-                    )}
-
-                    {uploading && (
-                        <View style={styles.avatarLoading}>
-                            <ActivityIndicator color="#FFFFFF" />
-                        </View>
-                    )}
-                </TouchableOpacity>
+            <View style={{ flexDirection: 'row', paddingTop: 32, alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <AntDesign name="star" size={24} color="#FB6D3A" />
+                <Text style={styles.restaurantRating}>{ratingText}</Text>
+              </View>
+              <Text style={styles.totalReviews}>{totalReviewsText}</Text>
             </View>
-
           </View>
 
-          <View style={styles.ordersContainer}>
-            <TouchableOpacity style={styles.orderBox} onPress={handleSheetOpenRunningOrders}>
-              <Text style={styles.orderNumbers}>{String(runningOrders.length).padStart(2, '0')}</Text>
-              <Text style={styles.orderLabel}>RUNNING ORDERS</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.orderBox} onPress={handleSheetOpenRequestOrders}>
-              <Text style={styles.orderNumbers}>{String(orderRequests.length).padStart(2, '0')}</Text>
-              <Text style={styles.orderLabel}>ORDER REQUEST</Text>
-            </TouchableOpacity>
+          <View>
+            <HorizontalList />
           </View>
-        </View>
-
-        <View style={styles.graphContainer}>
-          <View style={styles.graphHeader}>
-            <Text style={styles.containerHeaderTitle}>Total Revenue</Text>
-            <TouchableOpacity style={styles.graphExpandButton} onPress={handlePeriodPress}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={styles.graphExpandButtonText}>{PERIOD_LABELS[period]}</Text>
-                <Feather name="chevron-down" size={12} color="#181C2E" />
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity>
-            <Text style={styles.seeAllButton}>See Details</Text>
-            </TouchableOpacity>
-          </View>
-          <AnimatedText font={font} selectedValue={selectedValue} />
-          <GestureHandlerRootView style={{ height: CHART_HEIGHT }}>
-            {graphError ? (
-              <View style={styles.emptyChart}>
-                <Text style={styles.chartErrorText}>{graphError}</Text>
-              </View>
-            ) : chartData.length >= 2 ? (
-              <LineChart
-                key={period}
-                data={chartData}
-                chartWidth={CHART_WIDTH}
-                chartHeight={CHART_HEIGHT}
-                chartMargin={CHART_MARGIN}
-                selectedValue={selectedValue}
-              />
-            ) : (
-              <View style={styles.emptyChart}>
-                <Text style={styles.containerHeaderTitle}>No revenue data yet</Text>
-              </View>
-            )}
-          </GestureHandlerRootView>
-        </View>
-
-        <View style={styles.reviewContainer}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={styles.containerHeaderTitle}>Reviews</Text>
-            <TouchableOpacity onPress={handleSeeAllReviews}>
-              <Text style={styles.seeAllButton}>See All Reviews</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ flexDirection: 'row', paddingTop: 32, alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              <AntDesign name="star" size={24} color="#FB6D3A" />
-              <Text style={styles.restaurantRating}>{ratingText}</Text>
-            </View>
-            <Text style={styles.totalReviews}>{totalReviewsText}</Text>
-          </View>
-        </View>
-
-        <View>
-          <HorizontalList />
-        </View>
         </SafeAreaView>
-        </ScrollView>
+      </ScrollView>
 
       <BottomSheetModal
         ref={runningSheetRef}
@@ -798,43 +819,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 16
   },
-    locationUserPopUp: {
+  locationUserPopUp: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     maxWidth: '100%'
   },
-    locationUser: {
+  locationUser: {
     flexShrink: 1,
     color: '#676767',
     fontSize: 12,
     fontFamily: 'Sen_400Regular',
     maxWidth: 160
   },
-      avatarLoading: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderRadius: 100,
-        backgroundColor: 'rgba(0,0,0,0.35)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-        editTouchableOpacity: {
-        backgroundColor: '#98A8B8',
-        width: 55,
-        height: 55,
-        borderRadius: 100,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-        avatar: {
-        width: 55,
-        height: 55,
-        borderRadius: 100,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+  avatarLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 100,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editTouchableOpacity: {
+    backgroundColor: '#98A8B8',
+    width: 55,
+    height: 55,
+    borderRadius: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 55,
+    height: 55,
+    borderRadius: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 })
