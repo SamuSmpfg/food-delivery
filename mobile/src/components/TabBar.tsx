@@ -48,11 +48,7 @@ const TabBar = ({ state, descriptors }: TabBarProps) => {
 
                 const onPress = () => {
                     if (isFocused) return;
-
-                    // Não reenviar route.params: o expo-router grava ali { screen, params }
-                    // da última tela aninhada aberta (ex.: Reviews).
                     if (route.name === '(profile)') {
-                        // Vai sempre para Profile, sem depender do estado que a pilha guardou
                         navigation.navigate(route.name, { screen: 'Profile' });
                     } else {
                         navigation.navigate(route.name);

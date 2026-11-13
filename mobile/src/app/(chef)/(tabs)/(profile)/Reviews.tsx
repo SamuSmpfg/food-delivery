@@ -61,7 +61,6 @@ const Reviews = () => {
   const type: ReviewType = first(params.type) ?? 'restaurant'
 
   const { getToken } = useAuth()
-  // getToken pode mudar de identidade a cada render; a ref evita refetch em loop
   const getTokenRef = useRef(getToken)
   getTokenRef.current = getToken
 

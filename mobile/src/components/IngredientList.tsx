@@ -2,9 +2,11 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native
 import React from 'react'
 import { INGREDIENTS, IngredientCategory } from '@/data/mockData'
 
+export type SelectedIngredient = { id: string; name: string; kind: string }
+
 type Props = {
   selectedIds: string[]
-  onToggle: (id: string) => void
+  onToggle: (ingredient: SelectedIngredient) => void
 }
 
 const SECTIONS: IngredientCategory[] = ['Basic', 'Fruit']
@@ -28,7 +30,13 @@ const IngredientList = ({ selectedIds, onToggle }: Props) => {
               return (
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => onToggle(item.id)}
+                  onPress={() =>
+                    onToggle({
+                      id: item.id,
+                      name: item.name,
+                      kind: item.category.toLowerCase(),
+                    })
+                  }
                   style={[styles.chip, selected && styles.chipSelected]}
                 >
                   <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
@@ -46,17 +54,17 @@ const IngredientList = ({ selectedIds, onToggle }: Props) => {
 
 const styles = StyleSheet.create({
   section: {
-    marginTop: 16
+    marginTop: 16,
   },
   sectionTitle: {
     color: '#32343E',
     fontSize: 14,
     fontFamily: 'Sen_400Regular',
     marginBottom: 12,
-    paddingHorizontal: 24
+    paddingHorizontal: 24,
   },
   listContent: {
-    paddingHorizontal: 24
+    paddingHorizontal: 24,
   },
   chip: {
     paddingHorizontal: 18,
@@ -66,19 +74,19 @@ const styles = StyleSheet.create({
     borderColor: '#E8EAED',
     backgroundColor: '#FDFDFD',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   chipSelected: {
     backgroundColor: '#FDE9E2',
-    borderColor: '#FDE9E2'
+    borderColor: '#FDE9E2',
   },
   chipLabel: {
     fontSize: 13,
     fontFamily: 'Sen_400Regular',
-    color: '#7E8A97'
+    color: '#7E8A97',
   },
   chipLabelSelected: {
-    color: '#FF7622'
+    color: '#FF7622',
   },
 })
 

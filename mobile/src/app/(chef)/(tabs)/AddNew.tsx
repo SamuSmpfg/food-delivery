@@ -1,9 +1,12 @@
-import { View, Text, TouchableOpacity, StyleSheet, Keyboard, TouchableWithoutFeedback, ScrollView, Alert } from 'react-native'
+import {
+  View, Text, TouchableOpacity, StyleSheet, Keyboard,
+  TouchableWithoutFeedback, ScrollView, Alert, TextInput,
+} from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { useAuth } from '@clerk/clerk-expo'
 import { MaterialIcons } from '@expo/vector-icons'
-import { TextInput } from 'react-native-gesture-handler'
 import ImageUploadList from '@/components/ImageUploadList'
 import IngredientList from '@/components/IngredientList'
 
@@ -11,11 +14,15 @@ type Props = {}
 
 type DeliveryOption = 'pickup' | 'delivery'
 
+type SelectedIngredient = { id: string; name: string; kind: string }
+
 type CheckItemProps = {
   label: string
   checked: boolean
   onPress: () => void
 }
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL
 
 const CheckItem = ({ label, checked, onPress }: CheckItemProps) => (
   <TouchableOpacity style={styles.checkItem} onPress={onPress} activeOpacity={0.7}>
@@ -27,18 +34,24 @@ const CheckItem = ({ label, checked, onPress }: CheckItemProps) => (
 )
 
 const AddNew = (props: Props) => {
-
   const router = useRouter()
+  const { getToken } = useAuth()
+
   const [itemName, setItemName] = useState('')
   const [price, setPrice] = useState('')
   const [details, setDetails] = useState('')
   const [option, setOption] = useState<DeliveryOption>('pickup')
-  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([])
+  const [selectedIngredients, setSelectedIngredients] = useState<SelectedIngredient[]>([])
+  const [images, setImages] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
   const [resetKey, setResetKey] = useState(0)
 
-  const toggleIngredient = (id: string) => {
+  // o IngredientList deve chamar onToggle({ id, name, kind })
+  const toggleIngredient = (ing: SelectedIngredient) => {
     setSelectedIngredients((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.some((i) => i.id === ing.id)
+        ? prev.filter((i) => i.id !== ing.id)
+        : [...prev, ing]
     )
   }
 
@@ -48,6 +61,7 @@ const AddNew = (props: Props) => {
     setDetails('')
     setOption('pickup')
     setSelectedIngredients([])
+    setImages([])
     setResetKey((prev) => prev + 1)
     Keyboard.dismiss()
   }
@@ -63,89 +77,146 @@ const AddNew = (props: Props) => {
     )
   }
 
+  const handleSave = async () => {
+    if (!itemName.trim()) {
+      Alert.alert('Campo obrigatório', 'Informe o nome do item.')
+      return
+    }
+    const priceNumber = Number(price.replace(',', '.'))
+    if (!priceNumber || priceNumber <= 0) {
+      Alert.alert('Preço inválido', 'Informe um preço válido.')
+      return
+    }
+
+    try {
+      setSaving(true)
+      const token = await getToken()
+
+      const res = await fetch(`${API_URL}/api/dishes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: itemName.trim(),
+          description: details.trim(),
+          image: images[0] ?? '',
+          deliveryMode: option === 'pickup' ? 'Pickup' : 'Delivery',
+          sizes: [{ label: 'Único', price: priceNumber }],
+          ingredients: selectedIngredients.map(({ name, kind }) => ({ name, kind })),
+          // se o backend exigir: classification, category, restaurantId
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || `Erro ${res.status}`)
+      }
+
+      Alert.alert('Sucesso', 'Item criado com sucesso!', [
+        { text: 'OK', onPress: () => { resetForm(); router.back() } },
+      ])
+    } catch (e: any) {
+      Alert.alert('Erro ao salvar', e.message ?? 'Tente novamente.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const confirmSave = () => {
+    Alert.alert('Save changes', 'Are you sure you want to save the changes?', [
+      { text: 'No, cancel', style: 'cancel' },
+      { text: 'Yes, save', onPress: () => handleSave() },
+    ])
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.goBackTouchableOpacity}>
-          <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
-        </TouchableOpacity>
+      <ScrollView keyboardShouldPersistTaps="handled">
+        <View style={styles.headerContainer}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.goBackTouchableOpacity}>
+            <MaterialIcons name="keyboard-arrow-left" size={28} color="#181C2E" />
+          </TouchableOpacity>
 
-        <Text style={styles.title}>Add New Items</Text>
-        <TouchableOpacity onPress={handleReset}>
-          <Text style={styles.reset}>RESET</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={{ marginVertical: 16, paddingHorizontal:24 }}>
-        <Text style={styles.labels}>ITEM NAME</Text>
-        <TextInput
-          style={styles.itemNameInput}
-          placeholder='Mazalichiken Halim'
-          placeholderTextColor={'#9C9BA6'}
-          value={itemName}
-          onChangeText={setItemName}
-        />
-      </View>
-
-      <View style={{ marginVertical: 16, paddingHorizontal: 24 }}>
-        <Text style={styles.labels}>UPLOAD PHOTO/VIDEO</Text>
-        <View style={{ marginHorizontal: -24 }}>
-          <ImageUploadList key={`images-${resetKey}`} />
+          <Text style={styles.title}>Add New Items</Text>
+          <TouchableOpacity onPress={handleReset}>
+            <Text style={styles.reset}>RESET</Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={{ marginTop: 16 }}>
-            <Text style={styles.labels}>PRICE</Text>
-            <View style={styles.priceRow}>
-              <TextInput
-                style={styles.priceInput}
-                placeholder='$50'
-                placeholderTextColor={'#9C9BA6'}
-                keyboardType='numeric'
-                value={price}
-                onChangeText={setPrice}
-              />
-              <View style={styles.checkboxWrapper}>
-                <CheckItem label="Pick up" checked={option === 'pickup'} onPress={() => setOption('pickup')} />
-                <CheckItem label="Delivery" checked={option === 'delivery'} onPress={() => setOption('delivery')} />
-              </View>
-            </View>
-          </View>
-        </TouchableWithoutFeedback>
-
-        <View style={{ marginTop: 16 }}>
-          <Text style={styles.labels}>INGREDIENTS</Text>
-          <View style={{ marginHorizontal: -24 }}>
-            <IngredientList
-              key={`ingredients-${resetKey}`}
-              selectedIds={selectedIngredients}
-              onToggle={toggleIngredient}
-            />
-          </View>
-        </View>
-
-        <View>
-          <Text style={[styles.labels, {marginTop: 32}]}>DETAILS</Text>
-          <TextInput 
-          style={styles.detailsTextInput}
-          placeholder='Write down the food Details.'
-          placeholderTextColor={'#6B6E82'}
-          inputMode="text"
-          multiline
-          textAlignVertical="top"
-          value={details}
-          onChangeText={setDetails}
+        <View style={{ marginVertical: 16, paddingHorizontal: 24 }}>
+          <Text style={styles.labels}>ITEM NAME</Text>
+          <TextInput
+            style={styles.itemNameInput}
+            placeholder='Mazalichiken Halim'
+            placeholderTextColor={'#9C9BA6'}
+            value={itemName}
+            onChangeText={setItemName}
           />
         </View>
 
-        <TouchableOpacity style={styles.saveTouchableOpacity}>
-          <Text style={styles.saveText}>SAVE CHANGES</Text>
-        </TouchableOpacity>
+        <View style={{ marginVertical: 16, paddingHorizontal: 24 }}>
+          <Text style={styles.labels}>UPLOAD PHOTO/VIDEO</Text>
+          <View style={{ marginHorizontal: -24 }}>
+            <ImageUploadList key={`images-${resetKey}`} onChange={setImages} />
+          </View>
 
-      </View>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={{ marginTop: 16 }}>
+              <Text style={styles.labels}>PRICE</Text>
+              <View style={styles.priceRow}>
+                <TextInput
+                  style={styles.priceInput}
+                  placeholder='$50'
+                  placeholderTextColor={'#9C9BA6'}
+                  keyboardType='numeric'
+                  value={price}
+                  onChangeText={setPrice}
+                />
+                <View style={styles.checkboxWrapper}>
+                  <CheckItem label="Pick up" checked={option === 'pickup'} onPress={() => setOption('pickup')} />
+                  <CheckItem label="Delivery" checked={option === 'delivery'} onPress={() => setOption('delivery')} />
+                </View>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.labels}>INGREDIENTS</Text>
+            <View style={{ marginHorizontal: -24 }}>
+              <IngredientList
+                key={`ingredients-${resetKey}`}
+                selectedIds={selectedIngredients.map((i) => i.id)}
+                onToggle={toggleIngredient}
+              />
+            </View>
+          </View>
+
+          <View>
+            <Text style={[styles.labels, { marginTop: 32 }]}>DETAILS</Text>
+            <TextInput
+              style={styles.detailsTextInput}
+              placeholder='Write down the food Details.'
+              placeholderTextColor={'#6B6E82'}
+              inputMode="text"
+              multiline
+              textAlignVertical="top"
+              value={details}
+              onChangeText={setDetails}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.saveTouchableOpacity, saving && { opacity: 0.6 }]}
+            onPress={confirmSave}
+            disabled={saving}
+          >
+            <Text style={styles.saveText}>{saving ? 'SAVING...' : 'SAVE CHANGES'}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   )
@@ -159,7 +230,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24
+    paddingHorizontal: 24,
   },
   goBackTouchableOpacity: {
     backgroundColor: '#ECF0F4',
@@ -174,7 +245,7 @@ const styles = StyleSheet.create({
     marginLeft: 16,
     fontSize: 14,
     fontFamily: 'Sen_400Regular',
-    marginRight: 'auto'
+    marginRight: 'auto',
   },
   reset: {
     color: '#FB6D3A',
@@ -191,7 +262,7 @@ const styles = StyleSheet.create({
     width: 'auto',
     height: 60,
     fontFamily: 'Sen_400Regular',
-    fontSize: 14
+    fontSize: 14,
   },
   labels: {
     color: '#32343E',
@@ -201,7 +272,7 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16
+    marginVertical: 16,
   },
   priceInput: {
     width: 115,
@@ -212,17 +283,17 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
     borderRadius: 12,
     fontFamily: 'Sen_400Regular',
-    fontSize: 14
+    fontSize: 14,
   },
   checkboxWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 24,
-    gap: 20
+    gap: 20,
   },
   checkItem: {
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   checkbox: {
     width: 22,
@@ -232,16 +303,16 @@ const styles = StyleSheet.create({
     borderColor: '#E8EAED',
     backgroundColor: '#FDFDFD',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   checkboxChecked: {
-    borderColor: '#FF7622'
+    borderColor: '#FF7622',
   },
   checkboxlabel: {
     marginLeft: 8,
     fontSize: 13,
     fontFamily: 'Sen_400Regular',
-    color: '#7E8A97'
+    color: '#7E8A97',
   },
   detailsTextInput: {
     width: 'auto',
@@ -254,7 +325,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 16,
     paddingLeft: 16,
-    paddingTop: 16
+    paddingTop: 16,
   },
   saveTouchableOpacity: {
     width: 'auto',
@@ -264,13 +335,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 32,
-    marginBottom: 64
+    marginBottom: 64,
   },
   saveText: {
     color: '#fff',
     fontFamily: 'Sen_400Regular',
-    fontSize: 16
-  }
+    fontSize: 16,
+  },
 })
 
 export default AddNew

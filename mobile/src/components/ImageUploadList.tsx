@@ -13,13 +13,22 @@ import { Feather } from "@expo/vector-icons";
 
 const MAX_ITEMS = 5;
 
-export default function ImageUploadList() {
+type Props = {
+  onChange: (images: string[]) => void;
+};
+
+export default function ImageUploadList({ onChange }: Props) {
   const [images, setImages] = useState<string[]>([]);
 
   const data: (string | null)[] = Array.from(
     { length: MAX_ITEMS },
     (_, index) => images[index] ?? null
   );
+
+  const updateImages = (next: string[]) => {
+    setImages(next);
+    onChange(next);
+  };
 
   const pickImages = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -45,12 +54,12 @@ export default function ImageUploadList() {
 
     if (!result.canceled) {
       const uris = result.assets.map((asset) => asset.uri);
-      setImages((prev) => [...prev, ...uris].slice(0, MAX_ITEMS));
+      updateImages([...images, ...uris].slice(0, MAX_ITEMS));
     }
   };
 
   const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+    updateImages(images.filter((_, i) => i !== index));
   };
 
   const renderItem = ({
@@ -104,10 +113,10 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#FFFFFF",
   },
-listContent: {
-  paddingHorizontal: 24,
-  paddingVertical: 12,
-},
+  listContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
   separator: {
     width: 16,
   },
@@ -142,7 +151,7 @@ listContent: {
   addText: {
     fontSize: 16,
     color: "#9A9AA5",
-    fontFamily: 'Sen_400Regular'
+    fontFamily: "Sen_400Regular",
   },
   removeButton: {
     position: "absolute",

@@ -1,11 +1,14 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native'
+import {
+  View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput,
+  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Image,
+} from 'react-native'
 import React, { useState, useRef, useEffect } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useRouter, useNavigation, useLocalSearchParams } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import AntDesign from '@expo/vector-icons/AntDesign';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6'
+import AntDesign from '@expo/vector-icons/AntDesign'
 
 type Props = {}
 
@@ -25,29 +28,68 @@ type Food = {
   ingredients: Ingredient[]
 }
 
+type DishDto = {
+  _id: string
+  restaurantId?: { address?: string } | string
+  name: string
+  description: string
+  image: string
+  classification: string
+  deliveryMode: string
+  sizes: { label: string; price: number }[]
+  ingredients: { name: string; kind: string }[]
+  rating: number
+  reviewsCount: number
+}
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL
 
 const CLASSIFICATIONS = ['Breakfast', 'Lunch', 'Dinner']
 const DELIVERY_MODES = ['Delivery', 'Pickup', 'Dine-in']
+const ALLERGY_KIND = 'allergy'
+const DEFAULT_KIND = 'other'
 
-const INITIAL_FOOD: Food = {
-  name: 'Chicken Thai Biriyani',
-  price: '60',
-  address: 'Kentucky 39495',
-  description: 'Lorem ipsum dolor sit amet, consetdur Maton adipiscing elit. Bibendum in vel, mattis et amet dui mauris turpis.',
+const EMPTY_FOOD: Food = {
+  name: '',
+  price: '',
+  address: '',
+  description: '',
   classification: CLASSIFICATIONS[0],
   deliveryMode: DELIVERY_MODES[0],
-  ingredients: [
-    { id: '1', name: 'Salt' },
-    { id: '2', name: 'Chicken' },
-    { id: '3', name: 'Onion', allergy: true },
-    { id: '4', name: 'Garlic' },
-    { id: '5', name: 'Pappers', allergy: true },
-    { id: '6', name: 'Ginger' },
-    { id: '7', name: 'Broccoli' },
-    { id: '8', name: 'Orange' },
-    { id: '9', name: 'Walnut' },
-  ],
+  ingredients: [],
+}
+
+const toFood = (d: DishDto): Food => ({
+  name: d.name ?? '',
+  price: String(d.sizes?.[0]?.price ?? ''),
+  address: typeof d.restaurantId === 'object' ? d.restaurantId?.address ?? '' : '',
+  description: d.description ?? '',
+  classification: d.classification ?? CLASSIFICATIONS[0],
+  deliveryMode: d.deliveryMode ?? DELIVERY_MODES[0],
+  ingredients: (d.ingredients ?? []).map((i, idx) => ({
+    id: `${idx}-${i.name}`,
+    name: i.name,
+    allergy: i.kind === ALLERGY_KIND,
+  })),
+})
+
+const toPayload = (changes: Partial<Food>, dish: DishDto) => {
+  const payload: any = {}
+  if (changes.name !== undefined) payload.name = changes.name
+  if (changes.description !== undefined) payload.description = changes.description
+  if (changes.classification !== undefined) payload.classification = changes.classification
+  if (changes.deliveryMode !== undefined) payload.deliveryMode = changes.deliveryMode
+  if (changes.price !== undefined) {
+    const [first, ...rest] = dish.sizes?.length ? dish.sizes : [{ label: 'Único', price: 0 }]
+    payload.sizes = [{ ...first, price: Number(changes.price) || 0 }, ...rest]
+  }
+  if (changes.ingredients !== undefined) {
+    payload.ingredients = changes.ingredients.map((i) => ({
+      name: i.name,
+      kind: i.allergy ? ALLERGY_KIND : DEFAULT_KIND,
+    }))
+  }
+  return payload
 }
 
 const getChanges = (base: Food, current: Food): Partial<Food> => {
@@ -59,12 +101,10 @@ const getChanges = (base: Food, current: Food): Partial<Food> => {
   })
   return changes
 }
+
 const cycle = (list: string[], value: string) => list[(list.indexOf(value) + 1) % list.length]
 
-
-
 const ChefFoodDetails = (props: Props) => {
-
   const router = useRouter()
   const navigation = useNavigation<any>()
   const { getToken } = useAuth()
@@ -72,51 +112,94 @@ const ChefFoodDetails = (props: Props) => {
 
   const listRef = useRef<FlatList<Ingredient>>(null)
 
+  const [loading, setLoading] = useState(true)
+  const [dish, setDish] = useState<DishDto | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [food, setFood] = useState<Food>(INITIAL_FOOD)
-  const [draft, setDraft] = useState<Food>(INITIAL_FOOD)
+  const [food, setFood] = useState<Food>(EMPTY_FOOD)
+  const [draft, setDraft] = useState<Food>(EMPTY_FOOD)
   const [newIngredient, setNewIngredient] = useState('')
 
   const foodRef = useRef(food)
   const draftRef = useRef(draft)
   const isEditingRef = useRef(isEditing)
+  const dishRef = useRef<DishDto | null>(null)
+  const loadedRef = useRef(false)
+  const syncedRef = useRef<Food>(EMPTY_FOOD)
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve())
   foodRef.current = food
   draftRef.current = draft
   isEditingRef.current = isEditing
 
-  const syncedRef = useRef<Food>(INITIAL_FOOD)
-
   const data = isEditing ? draft : food
 
-  const syncChanges = async (current: Food) => {
-    if (!dishId) return
+  useEffect(() => {
+    if (!dishId) {
+      setLoading(false)
+      return
+    }
+    let active = true
+    ;(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/dishes/${dishId}`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const d: DishDto = await res.json()
+        if (!active) return
+        const f = toFood(d)
+        setDish(d)
+        dishRef.current = d
+        setFood(f)
+        setDraft(f)
+        syncedRef.current = f
+        loadedRef.current = true
+      } catch (e) {
+        if (active) Alert.alert('Erro', 'Não foi possível carregar o prato.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false }
+  }, [dishId])
+
+  const doSync = async (current: Food) => {
+    if (!dishId || !loadedRef.current || !dishRef.current) return
     const changes = getChanges(syncedRef.current, current)
     if (Object.keys(changes).length === 0) return
 
-    const payload: any = { ...changes }
-    if (payload.price !== undefined) payload.price = Number(payload.price)
-
-    try {
-      const token = await getToken()
-      const res = await fetch(`${API_URL}/api/dishes/${dishId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const payload = toPayload(changes, dishRef.current)
+    if (Object.keys(payload).length === 0) {
       syncedRef.current = current
-    } catch (e) {
-      console.warn('Falha ao salvar prato:', e)
+      return
     }
+
+    const token = await getToken()
+    const res = await fetch(`${API_URL}/api/dishes/${dishId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+    const updated = await res.json().catch(() => null)
+    if (updated?._id) {
+      setDish(updated)
+      dishRef.current = updated
+    }
+    syncedRef.current = current
+  }
+
+  const syncChanges = (current: Food) => {
+    const run = queueRef.current.then(() => doSync(current))
+    queueRef.current = run.catch(() => {})
+    return run
   }
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
       const current = isEditingRef.current ? draftRef.current : foodRef.current
-      syncChanges(current)
+      syncChanges(current).catch((e) => console.warn('Falha ao salvar prato:', e))
     })
     return unsubscribe
   }, [navigation, dishId])
@@ -127,10 +210,14 @@ const ChefFoodDetails = (props: Props) => {
     setIsEditing(true)
   }
 
-  const handleSave = () => {
-    setFood(draft)
-    setIsEditing(false)
-    syncChanges(draft)
+  const handleSave = async () => {
+    try {
+      await syncChanges(draft)
+      setFood(draft)
+      setIsEditing(false)
+    } catch (e) {
+      Alert.alert('Erro ao salvar', 'Não foi possível salvar as alterações. Tente novamente.')
+    }
   }
 
   const handleCancel = () => {
@@ -139,13 +226,13 @@ const ChefFoodDetails = (props: Props) => {
     setIsEditing(false)
   }
 
-        const confirmSave = () => {
-    Alert.alert('Save changes', `Are you sure you want to save the changes?`, [
+  const confirmSave = () => {
+    Alert.alert('Save changes', 'Are you sure you want to save the changes?', [
       { text: 'No, cancel', style: 'cancel' },
-      { text: 'Yes, save', onPress: () => handleSave() }
+      { text: 'Yes, save', onPress: () => handleSave() },
     ])
   }
-  
+
   const updateField = <K extends keyof Food>(key: K, value: Food[K]) =>
     setDraft((prev) => ({ ...prev, [key]: value }))
 
@@ -185,13 +272,20 @@ const ChefFoodDetails = (props: Props) => {
         </TouchableOpacity>
       )}
 
-      {item.allergy && <Text style={styles.ingredientAllergy}>(Alergy)</Text>}
+      {item.allergy && <Text style={styles.ingredientAllergy}>(Allergy)</Text>}
     </TouchableOpacity>
   )
 
   const renderListHeader = () => (
     <View>
       <View style={styles.foodImg}>
+        {!!dish?.image && (
+          <Image
+            source={{ uri: dish.image }}
+            style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
+            resizeMode="cover"
+          />
+        )}
         {isEditing ? (
           <>
             <TouchableOpacity
@@ -252,21 +346,12 @@ const ChefFoodDetails = (props: Props) => {
 
         <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center' }}>
           <FontAwesome6 name="location-dot" size={16} color="#AFAFAF" />
-          {isEditing ? (
-            <TextInput
-              style={[styles.addressAndReviews, styles.input, { flex: 1 }]}
-              value={data.address}
-              onChangeText={(t) => updateField('address', t)}
-              placeholder="Address"
-            />
-          ) : (
-            <Text style={styles.addressAndReviews}>{data.address}</Text>
-          )}
+          <Text style={styles.addressAndReviews}>{data.address}</Text>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
             <AntDesign name="star" size={24} color="#FB6D3A" />
-            <Text style={styles.rating}>4.9</Text>
-            <Text style={styles.addressAndReviews}>(10 reviews)</Text>
+            <Text style={styles.rating}>{dish?.rating ? dish.rating.toFixed(1) : '-'}</Text>
+            <Text style={styles.addressAndReviews}>({dish?.reviewsCount ?? 0} reviews)</Text>
           </View>
         </View>
       </View>
@@ -316,9 +401,16 @@ const ChefFoodDetails = (props: Props) => {
     </View>
   )
 
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color="#FB6D3A" />
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-
       <View style={styles.headerContainer}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -357,7 +449,6 @@ const ChefFoodDetails = (props: Props) => {
           contentContainerStyle={[styles.ingredientsList, isEditing && styles.ingredientsListEditing]}
         />
       </KeyboardAvoidingView>
-
     </SafeAreaView>
   )
 }
@@ -379,13 +470,13 @@ const styles = StyleSheet.create({
     width: 45,
     borderRadius: 100,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   title: {
     color: '#32343E',
     fontSize: 14,
     fontFamily: 'Sen_400Regular',
-    marginRight: 'auto'
+    marginRight: 'auto',
   },
   editTouchableOpacity: {
     color: '#FB6D3A',
@@ -409,7 +500,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
   },
   foodClass: {
     backgroundColor: '#FFFFFFCC',
@@ -418,52 +509,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 60,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   foodClassText: {
     fontFamily: 'Sen_400Regular',
     fontSize: 14,
-    color: '#32343E'
+    color: '#32343E',
   },
   addressAndReviews: {
     color: '#AFAFAF',
     fontFamily: 'Sen_400Regular',
     fontSize: 12,
-    marginLeft: 8
+    marginLeft: 8,
   },
   rating: {
     color: '#FB6D3A',
     fontFamily: 'Sen_700Bold',
     fontSize: 16,
-    marginLeft: 8
+    marginLeft: 8,
   },
   foodNameAndPrice: {
     fontFamily: 'Sen_700Bold',
     fontSize: 16,
-    color: '#32343E'
+    color: '#32343E',
   },
   lineSeparator: {
     width: 'auto',
     backgroundColor: '#F0F4F9',
     height: 1,
-    marginVertical: 24
+    marginVertical: 24,
   },
   ingredientsTitle: {
     color: '#32343E',
     fontSize: 14,
     fontFamily: 'Sen_400Regular',
-    marginBottom: 16
+    marginBottom: 16,
   },
   ingredientsList: {
     rowGap: 16,
-    paddingBottom: 120
+    paddingBottom: 120,
   },
   ingredientsListEditing: {
-    paddingBottom: 320
+    paddingBottom: 320,
   },
   ingredientItem: {
     width: '20%',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   ingredientCircle: {
     width: '88%',
@@ -472,38 +563,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#FDEBE4',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4
+    paddingHorizontal: 4,
   },
   ingredientCircleText: {
     color: '#FF7622',
     fontFamily: 'Sen_400Regular',
     fontSize: 12,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   ingredientAllergy: {
     color: '#747783',
     fontFamily: 'Sen_400Regular',
     fontSize: 9,
-    marginTop: 4
+    marginTop: 4,
   },
   footer: {
-    width: '100%'
+    width: '100%',
   },
   descriptionText: {
     color: '#747783',
     fontFamily: 'Sen_400Regular',
     fontSize: 14,
-    lineHeight: 22
+    lineHeight: 22,
   },
   input: {
     borderBottomWidth: 1,
     borderBottomColor: '#FB6D3A',
     paddingVertical: 2,
-  },
-  chipInput: {
-    minWidth: 70,
-    textAlign: 'center',
-    padding: 0,
   },
   descriptionInput: {
     minHeight: 100,
@@ -549,7 +635,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-    foodClassEditing: {
+  foodClassEditing: {
     borderWidth: 1,
     borderColor: '#FB6D3A',
   },

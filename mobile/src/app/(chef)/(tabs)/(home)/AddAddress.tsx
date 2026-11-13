@@ -126,7 +126,7 @@ const AddAddress = () => {
 
   const handleSave = async () => {
     if (!address.trim() || !coords) {
-      Alert.alert('Endereço obrigatório', 'Aguarde a localização ou informe o endereço.')
+      Alert.alert('Address required', 'Please wait for the location to be determined or enter the address.')
       return
     }
     setSaving(true)
