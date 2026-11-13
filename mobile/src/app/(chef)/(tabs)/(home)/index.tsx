@@ -219,9 +219,9 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
     setPeriod((current) => PERIODS[(PERIODS.indexOf(current) + 1) % PERIODS.length])
   }, [])
 
-  const handleSeeAllReviews = useCallback(() => {
-    router.push({ pathname: '/(chef)/(tabs)/(profile)/Reviews', params: { type: 'mine' } })
-  }, [])
+ const handleSeeAllReviews = useCallback(() => {
+  router.push({ pathname: '/(chef)/(tabs)/(home)/Reviews', params: { type: 'mine' } })
+}, [])
 
   const handleSheetOpenRunningOrders = useCallback(() => {
     loadOrders()

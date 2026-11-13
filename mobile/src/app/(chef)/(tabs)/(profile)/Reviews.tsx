@@ -1,9 +1,10 @@
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, RefreshControl,
 } from 'react-native'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useAuth } from '@clerk/clerk-expo'
 import { Feather, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL
@@ -18,14 +19,18 @@ type Review = {
   userId?: { _id: string; name?: string } | null
 }
 
+type ReviewType = 'restaurant' | 'dish' | 'mine'
+
 type SearchParams = {
-  id?: string
-  type?: 'restaurant' | 'dish'
+  id?: string | string[]
+  type?: ReviewType | ReviewType[]
 }
 
 type StarsProps = {
   rating: number
 }
+
+const first = <T,>(value?: T | T[]) => (Array.isArray(value) ? value[0] : value)
 
 const Stars = ({ rating }: StarsProps) => {
   return (
@@ -50,9 +55,15 @@ const formatDate = (value: string) =>
   })
 
 const Reviews = () => {
-  console.log(useLocalSearchParams())
   const router = useRouter()
-  const { id, type = 'restaurant' } = useLocalSearchParams<SearchParams>()
+  const params = useLocalSearchParams<SearchParams>()
+  const id = first(params.id)
+  const type: ReviewType = first(params.type) ?? 'restaurant'
+
+  const { getToken } = useAuth()
+  // getToken pode mudar de identidade a cada render; a ref evita refetch em loop
+  const getTokenRef = useRef(getToken)
+  getTokenRef.current = getToken
 
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
@@ -61,7 +72,13 @@ const Reviews = () => {
 
   const loadReviews = useCallback(
     async (isRefresh = false) => {
-      if (!id) {
+      if (!API_URL) {
+        setError('EXPO_PUBLIC_API_URL is not set.')
+        setLoading(false)
+        return
+      }
+
+      if (type !== 'mine' && !id) {
         setError('Missing restaurant or dish identifier.')
         setLoading(false)
         return
@@ -78,9 +95,18 @@ const Reviews = () => {
       setError(null)
 
       try {
-        const response = await fetch(`${API_URL}/api/reviews/${type}/${id}`, {
-          signal: controller.signal,
-        })
+        const url =
+          type === 'mine'
+            ? `${API_URL}/api/reviews/mine`
+            : `${API_URL}/api/reviews/${type}/${id}`
+
+        const headers: Record<string, string> = {}
+        if (type === 'mine') {
+          const token = await getTokenRef.current()
+          if (token) headers.Authorization = `Bearer ${token}`
+        }
+
+        const response = await fetch(url, { headers, signal: controller.signal })
         if (!response.ok) throw new Error('Request failed')
         const data: Review[] = await response.json()
         setReviews(data)
