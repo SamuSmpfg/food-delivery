@@ -7,6 +7,7 @@ import reviews from './reviews.routes.js';
 import messages from './messages.routes.js';
 import notifications from './notifications.routes.js';
 import paymentMethods from './paymentMethods.routes.js';
+import user from './user.routes.js';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/reviews', reviews);
 router.use('/messages', messages);
 router.use('/notifications', notifications);
 router.use('/payment-methods', paymentMethods);
+router.use('/user', user);
 
 export default router;

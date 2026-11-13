@@ -44,6 +44,17 @@ router.get('/account', requireUser, asyncHandler(async (req, res) => {
   res.json(req.user)
 }))
 
+router.get('/chef-profile', requireUser, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'chef') {
+    return res.status(403).json({ message: 'Forbidden' })
+  }
+
+  res.json({
+    balance: req.user.balance ?? 0,
+    ordersCount: req.user.ordersCount ?? 0
+  })
+}))
+
 router.put('/account', requireUser, asyncHandler(async (req, res) => {
   const { firstName, lastName, phone } = req.body
 

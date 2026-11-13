@@ -369,9 +369,12 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
             </View>
 
             <View style={{marginLeft: 'auto'}}>
-              <View>
+              <TouchableOpacity
+                        style={styles.editTouchableOpacity}
+                        onPress={pickImage}
+                        disabled={uploading}>
                     {user?.hasImage ? (
-                        <Image source={{ uri: user.imageUrl }} style={styles.avatar} />
+                        <Image source={{ uri: user.imageUrl }} style={styles.editTouchableOpacity} />
                     ) : (
                         <View style={styles.avatar} />
                     )}
@@ -381,13 +384,7 @@ export default function ChefHome({ order, onTrack, onCancel }: ChefHomeProps) {
                             <ActivityIndicator color="#FFFFFF" />
                         </View>
                     )}
-
-                    <TouchableOpacity
-                        style={styles.editTouchableOpacity}
-                        onPress={pickImage}
-                        disabled={uploading}
-                    />
-                </View>
+                </TouchableOpacity>
             </View>
 
           </View>
@@ -832,9 +829,6 @@ const styles = StyleSheet.create({
         borderRadius: 100,
         justifyContent: 'center',
         alignItems: 'center',
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
     },
         avatar: {
         width: 55,

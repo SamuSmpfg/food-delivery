@@ -18,6 +18,8 @@ const userSchema = new mongoose.Schema(
         stripeCustomerId: { type: String, default: null },
         address: addressSchema,
         paymentMethods: [paymentMethodSchema],
+        balance: { type: Number, default: 0, min: 0 },
+        ordersCount: { type: Number, default: 0, min: 0 },
     },
     { timestamps: true }
 );

@@ -31,6 +31,7 @@ type NotificationItem = {
 }
 
 type Conversation = {
+  _id: string
   orderId: string
   user: { _id: string; name: string }
   lastMessage: string
@@ -120,9 +121,10 @@ type MessagesListProps = {
   refreshing: boolean
   onRefresh: () => void
   onRead: (orderId: string, userId: string) => void
+  onRemove: (orderId: string, userId: string) => void
 }
 
-const MessagesList = ({ data, refreshing, onRefresh, onRead }: MessagesListProps) => {
+const MessagesList = ({ data, refreshing, onRefresh, onRead, onRemove }: MessagesListProps) => {
   return (
     <FlatList
       data={data}
@@ -137,7 +139,20 @@ const MessagesList = ({ data, refreshing, onRefresh, onRead }: MessagesListProps
         const unread = item.unreadCount > 0
 
         return (
-          <TouchableOpacity style={styles.messageRow} onPress={() => onRead(item.orderId, item.user._id)}>
+          <TouchableOpacity
+            style={styles.messageRow}
+            onPress={() => onRead(item.orderId, item.user._id)}
+            onLongPress={() =>
+              Alert.alert('Delete conversation', 'Remove this conversation?', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: () => onRemove(item.orderId, item.user._id),
+                },
+              ])
+            }
+          >
             <View style={styles.messageAvatar}>
               <Text style={styles.avatarInitial}>
                 {item.user.name.charAt(0).toUpperCase()}
@@ -227,42 +242,39 @@ const Notifications = () => {
     }
   }
 
-  const clearNotifications = () => {
-    Alert.alert('Clear all', 'Remove all notifications?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Clear',
-        style: 'destructive',
-        onPress: async () => {
-          setNotifications([])
-          try {
-            await request('/api/notifications', await getToken(), 'DELETE')
-          } catch {
-            load()
-          }
-        },
-      },
-    ])
-  }
-
   const markAsRead = async (orderId: string, userId: string) => {
     setConversations((current) =>
-    current.map((item) =>
-      item.orderId === orderId && item.user._id === userId
-        ? { ...item, unreadCount: 0 }
-        : item
+      current.map((item) =>
+        item.orderId === orderId && item.user._id === userId
+          ? { ...item, unreadCount: 0 }
+          : item
+      )
     )
-  )
     try {
-    await request(
-      `/api/messages/order/${orderId}/read?userId=${userId}`,
-      await getToken(),
-      'PATCH'
-    )
-  } catch {
-    load()
+      await request(
+        `/api/messages/order/${orderId}/read?userId=${userId}`,
+        await getToken(),
+        'PATCH'
+      )
+    } catch {
+      load()
+    }
   }
-}
+
+  const removeConversation = async (orderId: string, userId: string) => {
+    setConversations((current) =>
+      current.filter((item) => !(item.orderId === orderId && item.user._id === userId))
+    )
+    try {
+      await request(
+        `/api/messages/order/${orderId}?userId=${userId}`,
+        await getToken(),
+        'DELETE'
+      )
+    } catch {
+      load()
+    }
+  }
 
   const unreadMessages = conversations.reduce(
     (total, conversation) => total + conversation.unreadCount,
@@ -284,7 +296,7 @@ const Notifications = () => {
           {tab === NotificationTab.Notifications ? 'Notifications' : 'Messages'}
         </Text>
         {showClear && (
-          <TouchableOpacity onPress={clearNotifications} style={styles.clearButton}>
+          <TouchableOpacity style={styles.clearButton}>
             <Text style={styles.clearText}>Clear all</Text>
           </TouchableOpacity>
         )}
@@ -314,6 +326,7 @@ const Notifications = () => {
             refreshing={refreshing}
             onRefresh={handleRefresh}
             onRead={markAsRead}
+            onRemove={removeConversation}
           />
         )}
       </View>

@@ -120,4 +120,20 @@ router.patch('/order/:orderId/read', validateId('orderId'), asyncHandler(async (
     res.status(204).end();
 }));
 
+router.delete('/order/:orderId', validateId('orderId'), asyncHandler(async (req, res) => {
+    const { userId } = req.query;
+    if (!mongoose.isValidObjectId(userId)) {
+        return res.status(400).json({ message: 'userId is required' });
+    }
+
+    await Message.deleteMany({
+        orderId: req.params.orderId,
+        $or: [
+            { senderId: req.user._id, receiverId: userId },
+            { senderId: userId, receiverId: req.user._id }
+        ]
+    });
+    res.status(204).end();
+}));
+
 export default router;

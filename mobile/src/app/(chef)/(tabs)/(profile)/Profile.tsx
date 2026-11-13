@@ -1,16 +1,55 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native'
-import React from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native'
+import React, { useCallback, useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 
-type Props = {}
+type ProfileData = {
+  balance: number
+  ordersCount: number
+}
 
-const Profile = (props: Props) => {
+const formatBalance = (cents: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
+
+const formatOrders = (count: number) => {
+  if (count < 1000) return String(count)
+  const value = count / 1000
+  return `${value >= 10 ? Math.round(value) : value.toFixed(1).replace(/\.0$/, '')}K`
+}
+
+const Profile = () => {
 
   const router = useRouter()
-      const { signOut } = useAuth();
+  const { signOut, getToken } = useAuth();
+  const [data, setData] = useState<ProfileData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  const loadProfile = useCallback(async () => {
+    try {
+      setError(false)
+      const token = await getToken()
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/chef-profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) throw new Error(`Falha ao buscar perfil: ${response.status}`)
+      const json = await response.json()
+      setData({ balance: json.balance, ordersCount: json.ordersCount })
+    } catch (err) {
+      console.error('Erro ao carregar perfil:', err)
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [getToken])
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile()
+    }, [loadProfile])
+  )
 
   const handleSignOut = async () => {
         Alert.alert('Sign Out', `Are you sure you want to Sign Out?`, [
@@ -30,6 +69,9 @@ const Profile = (props: Props) => {
         ])
     };
 
+  const balanceLabel = loading ? '' : error || !data ? '--' : formatBalance(data.balance)
+  const ordersLabel = loading ? '' : error || !data ? '--' : formatOrders(data.ordersCount)
+
   return (
     <>
     <ScrollView style={{ flex: 1, backgroundColor: '#fff'}}>
@@ -46,7 +88,11 @@ const Profile = (props: Props) => {
 
       <View style={styles.balanceContainer}>
         <Text style={styles.avaliableBalanceText}>Available Balance</Text>
-        <Text style={styles.balanceText}>$500.00</Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" style={styles.balanceLoader} />
+        ) : (
+          <Text style={styles.balanceText}>{balanceLabel}</Text>
+        )}
 
         <TouchableOpacity style={styles.withdrawTouchableOpacity} onPress={() => router.push('/(chef)/(tabs)/(profile)/SucessfulWithdraw')}>
         <Text style={styles.pageTitle}>Withdraw</Text>
@@ -101,7 +147,11 @@ const Profile = (props: Props) => {
                         </View>
                         <Text style={styles.iconsLabels}>Number of Orders</Text>
                         <View style={styles.detailsArrow}>
-                            <Text style={styles.numberOfOrders}>29K</Text>
+                            {loading ? (
+                              <ActivityIndicator color="#9C9BA6" />
+                            ) : (
+                              <Text style={styles.numberOfOrders}>{ordersLabel}</Text>
+                            )}
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -175,6 +225,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Sen_700Bold',
     fontSize: 36,
     color: '#fff',
+  },
+  balanceLoader: {
+    height: 54,
   },
   withdrawTouchableOpacity: {
     borderWidth: 1,
