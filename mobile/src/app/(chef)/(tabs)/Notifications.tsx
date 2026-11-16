@@ -242,6 +242,17 @@ const Notifications = () => {
     }
   }
 
+  const clearAllNotifications = async () => {
+    const previous = notifications
+    setNotifications([])
+    try {
+      await request('/api/notifications', await getToken(), 'DELETE')
+    } catch {
+      setNotifications(previous)
+      load()
+    }
+  }
+
   const markAsRead = async (orderId: string, userId: string) => {
     setConversations((current) =>
       current.map((item) =>
@@ -296,7 +307,15 @@ const Notifications = () => {
           {tab === NotificationTab.Notifications ? 'Notifications' : 'Messages'}
         </Text>
         {showClear && (
-          <TouchableOpacity style={styles.clearButton}>
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={() =>
+              Alert.alert('Clear all notifications', 'Do you want to delete all notifications?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: clearAllNotifications },
+              ])
+            }
+          >
             <Text style={styles.clearText}>Clear all</Text>
           </TouchableOpacity>
         )}
