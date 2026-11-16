@@ -2,10 +2,10 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Activi
 import { useState, useRef, useEffect } from 'react'
 import { Checkbox } from 'expo-checkbox';
 import { useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
 import { useSignIn, useAuth } from '@clerk/clerk-expo';
 import * as Location from 'expo-location'
 import Ionicons from '@expo/vector-icons/Ionicons';
+import SocialAuthButtons from '../../components/SocialAuthButtons';
 
 const SignIn = () => {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -209,26 +209,7 @@ const SignIn = () => {
 
           <View style={styles.otherSignUpMethods}>
             <Text style={styles.simpleTexts}>Or</Text>
-            <View style={styles.socialRow}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[styles.socialCircle, styles.socialFacebook]}
-              >
-                <FontAwesome5 name="facebook-f" size={26} color="#FFFFFF" brand />
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[styles.socialCircle, styles.socialTwitter]}
-              >
-                <FontAwesome5 name="twitter" size={26} color="#FFFFFF" brand />
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[styles.socialCircle, styles.socialApple]}
-              >
-                <FontAwesome5 name="apple" size={28} color="#FFFFFF" brand />
-              </TouchableOpacity>
-            </View>
+            <SocialAuthButtons />
           </View>
         </ScrollView>
       </View>
@@ -379,28 +360,6 @@ const styles = StyleSheet.create({
   otherSignUpMethods: {
     marginTop: 32,
     alignItems: "center",
-  },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-    gap: 24
-  },
-  socialCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  socialFacebook: {
-    backgroundColor: "#3F5994",
-  },
-  socialTwitter: {
-    backgroundColor: "#489BE6",
-  },
-  socialApple: {
-    backgroundColor: "#1D2030",
   },
   raysGray: {
     position: "absolute",
