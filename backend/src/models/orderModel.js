@@ -12,7 +12,7 @@ const orderSchema = new mongoose.Schema(
         stages: [orderStageSchema],
         status: {
             type: String,
-            enum: ['pending', 'preparing', 'ready', 'delivering', 'delivered', 'cancelled'],
+            enum: ['pending', 'accepted', 'preparing', 'ready', 'delivering', 'delivered', 'cancelled'],
             default: 'pending'
         },
         subTotal: { type: Number, required: true },
@@ -21,11 +21,19 @@ const orderSchema = new mongoose.Schema(
         deliveryAddress: addressSchema,
         payment: {
             stripePaymentIntentId: { type: String, default: null },
-            status: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' }
+            status: { type: String, enum: ['pending', 'paid', 'failed', 'refunded'], default: 'pending' },
+            refundId: { type: String, default: null }
         },
         estimatedMinutes: { type: Number, required: true },
     },
     { timestamps: true }
 );
+
+orderSchema.index(
+    { 'payment.stripePaymentIntentId': 1 },
+    { unique: true, partialFilterExpression: { 'payment.stripePaymentIntentId': { $type: 'string' } } }
+);
+
+orderSchema.index({ restaurantId: 1, status: 1, createdAt: -1 });
 
 export default mongoose.model('Order', orderSchema);

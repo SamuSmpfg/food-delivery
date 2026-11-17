@@ -20,7 +20,7 @@ import { useProfileImagePicker } from '../../../../../hooks/useProfileImagePicke
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL
 
-type OrderStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'CANCELLED'
+type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled'
 
 type RunningOrder = {
   _id: string
@@ -60,7 +60,12 @@ const PERIOD_LABELS: Record<Period, string> = {
 
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-async function api<T>(path: string, token: string | null, method: string = 'GET'): Promise<T> {
+async function api<T>(
+  path: string,
+  token: string | null,
+  method: string = 'GET',
+  body?: Record<string, unknown>
+): Promise<T> {
   if (!API_URL) {
     throw new Error('EXPO_PUBLIC_API_URL não está definida no .env do app')
   }
@@ -71,14 +76,14 @@ async function api<T>(path: string, token: string | null, method: string = 'GET'
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    ...(body ? { body: JSON.stringify(body) } : {}),
   })
 
   if (!res.ok) {
-
-    const body = await res.json().catch(() => null)
-    throw new Error(body?.message ?? `Erro ${res.status}`)
+    const errorBody = await res.json().catch(() => null)
+    throw new Error(errorBody?.message ?? `Erro ${res.status}`)
   }
-  
+
   return res.json()
 }
 
@@ -143,11 +148,16 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
   const requestSheetRef = useRef<BottomSheetModal>(null)
   const snapPoints = useMemo(() => ['75%'], [])
 
+  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
+    const token = await getTokenRef.current()
+    return api<RunningOrder>(`/api/orders/${orderId}/status`, token, 'PATCH', { status })
+  }, [])
+
   const loadOrders = useCallback(async () => {
     if (!authReady) return
     try {
       const token = await getTokenRef.current()
-      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/orders/chef?status=RUNNING', token)
+      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/orders/restaurant?status=accepted,preparing', token)
       setRunningOrders(res.orders)
     } catch (error) {
       console.error('Erro ao carregar pedidos:', error)
@@ -160,7 +170,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     if (!authReady) return
     try {
       const token = await getTokenRef.current()
-     const res = await api<{ count: number; orders: RunningOrder[] }>('/api/orders/restaurant?status=pending', token)
+      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/orders/restaurant?status=pending', token)
       setOrderRequests(res.orders)
     } catch (error) {
       console.error('Error loading order requests:', error)
@@ -247,18 +257,31 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     requestSheetRef.current?.present()
   }, [loadOrderRequests])
 
+  const handleStartPress = useCallback(
+    async (item: RunningOrder) => {
+      try {
+        await updateOrderStatus(item._id, 'preparing')
+        setRunningOrders((prev) =>
+          prev.map((o) => (o._id === item._id ? { ...o, status: 'preparing' } : o))
+        )
+      } catch (error) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Could not start the order')
+      }
+    },
+    [updateOrderStatus]
+  )
+
   const handleDonePress = useCallback(
     async (item: RunningOrder) => {
       try {
-        const token = await getTokenRef.current()
-        await api(`/api/orders/chef/${item._id}/done`, token, 'PATCH')
+        await updateOrderStatus(item._id, 'ready')
         setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
         loadGraph()
       } catch (error) {
         Alert.alert('Error', error instanceof Error ? error.message : 'Could not finish the order')
       }
     },
-    [loadGraph]
+    [updateOrderStatus, loadGraph]
   )
 
   const handleCancelPress = useCallback(
@@ -273,8 +296,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
             style: 'destructive',
             onPress: async () => {
               try {
-                const token = await getTokenRef.current()
-                await api(`/api/orders/chef/${item._id}/cancel`, token, 'PATCH')
+                await updateOrderStatus(item._id, 'cancelled')
                 setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
                 onCancel?.(item.orderId)
               } catch (error) {
@@ -286,22 +308,21 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
         { cancelable: true }
       )
     },
-    [onCancel]
+    [onCancel, updateOrderStatus]
   )
 
   const handleAcceptRequest = useCallback(
     async (item: RunningOrder) => {
       try {
-        const token = await getTokenRef.current()
-        await api(`/api/orders/chef/${item._id}/accept`, token, 'PATCH')
+        await updateOrderStatus(item._id, 'accepted')
 
         setOrderRequests((prev) => prev.filter((o) => o._id !== item._id))
-        setRunningOrders((prev) => [{ ...item, status: 'RUNNING' }, ...prev])
+        setRunningOrders((prev) => [{ ...item, status: 'accepted' }, ...prev])
       } catch (error) {
         Alert.alert('Error', error instanceof Error ? error.message : 'Could not accept the order')
       }
     },
-    []
+    [updateOrderStatus]
   )
 
   const handleDeclineRequest = useCallback(
@@ -316,8 +337,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
             style: 'destructive',
             onPress: async () => {
               try {
-                const token = await getTokenRef.current()
-                await api(`/api/orders/chef/${item._id}/decline`, token, 'PATCH')
+                await updateOrderStatus(item._id, 'cancelled')
                 setOrderRequests((prev) => prev.filter((o) => o._id !== item._id))
               } catch (error) {
                 Alert.alert('Error', error instanceof Error ? error.message : 'Could not decline the order')
@@ -328,7 +348,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
         { cancelable: true }
       )
     },
-    []
+    [updateOrderStatus]
   )
 
   const renderBackdrop = useCallback(
@@ -507,18 +527,20 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
               ) : (
                 <View style={styles.foodImgSheet} />
               )}
-              <View style={{ flexDirection: 'column', gap: 4, marginLeft: 16}}>
+              <View style={{ flexDirection: 'column', gap: 4, marginLeft: 16 }}>
                 <Text style={styles.foodClass}>{item.foodType}</Text>
-                <Text style={styles.foodName} numberOfLines={1} ellipsizeMode='tail'>{item.name}</Text>
+                <Text style={styles.foodName} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
                 <Text style={styles.foodId}>ID: {item.orderId}</Text>
 
                 <View style={styles.sheetButtons}>
                   <Text style={[styles.foodName, { fontFamily: 'Sen_400Regular', marginRight: 40 }]}>${item.price}</Text>
                   <TouchableOpacity
                     style={styles.doneTouchableOpacity}
-                    onPress={() => handleDonePress(item)}
+                    onPress={() => (item.status === 'accepted' ? handleStartPress(item) : handleDonePress(item))}
                   >
-                    <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#fff' }}>Done</Text>
+                    <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#fff' }}>
+                      {item.status === 'accepted' ? 'Start' : 'Done'}
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.cancelTouchableOpacity}
@@ -709,11 +731,12 @@ const styles = StyleSheet.create({
   },
   doneTouchableOpacity: {
     backgroundColor: '#FF7622',
-    width: 61,
+    width: 'auto',
     height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 12,
   },
   acceptTouchableOpacity: {
     backgroundColor: '#FF7622',

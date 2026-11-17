@@ -5,8 +5,12 @@ import Order from '../models/orderModel.js'
 import User from '../models/userModel.js'
 import Restaurant from '../models/restuarantModel.js'
 import Dish from '../models/dishesModel.js'
+import { verifyPaymentIntent, refundOrderIfPaid } from '../utils/stripePayments.js'
+import { notifyCustomerOfStatus } from '../utils/orderNotifications.js'
 
 const router = Router()
+
+const REQUIRE_PAYMENT_INTENT = process.env.REQUIRE_PAYMENT_INTENT === 'true'
 
 const findOrCreateUser = async (clerkId) => {
   const existing = await User.findOne({ clerkId })
@@ -99,6 +103,10 @@ router.post('/', async (req, res) => {
   try {
     console.log('POST /api/orders received', JSON.stringify(req.body))
     const { restaurantId, items, deliveryAddress } = req.body
+    const paymentIntentId =
+      typeof req.body.paymentIntentId === 'string' && req.body.paymentIntentId.trim()
+        ? req.body.paymentIntentId.trim()
+        : null
 
     if (!mongoose.isValidObjectId(restaurantId)) {
       return res.status(400).json({ message: 'Invalid restaurant id' })
@@ -110,6 +118,18 @@ router.post('/', async (req, res) => {
 
     if (items.some((item) => !mongoose.isValidObjectId(item?.dishId))) {
       return res.status(400).json({ message: 'Invalid dish id' })
+    }
+
+    if (!paymentIntentId && REQUIRE_PAYMENT_INTENT) {
+      return res.status(400).json({ message: 'A confirmed payment is required' })
+    }
+
+    if (paymentIntentId) {
+      const existingOrder = await Order.findOne({
+        userId: req.user._id,
+        'payment.stripePaymentIntentId': paymentIntentId
+      }).populate(POPULATE_RESTAURANT)
+      if (existingOrder) return res.status(200).json(toResponse(existingOrder))
     }
 
     const restaurant = await Restaurant.findById(restaurantId)
@@ -143,8 +163,6 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ message: `Invalid size for ${dish.name}` })
       }
 
-      console.log('SIZE DEBUG', JSON.stringify(dish.sizes), JSON.stringify(size))
-
       if (!size.label || typeof size.price !== 'number') {
         console.error('Dish with an irregularly shaped size:', String(dish._id), JSON.stringify(dish.sizes))
         return res.status(400).json({ message: `The dish ${dish.name} has a malformed size (missing label or price)` })
@@ -164,6 +182,15 @@ router.post('/', async (req, res) => {
     const deliveryFee = restaurant.deliveryFee ?? 0
     const total = round(subTotal + deliveryFee)
 
+    let payment = null
+    if (paymentIntentId) {
+      const check = await verifyPaymentIntent(paymentIntentId, total)
+      if (!check.ok) {
+        return res.status(400).json({ message: check.message })
+      }
+      payment = { stripePaymentIntentId: paymentIntentId, status: 'paid' }
+    }
+
     const order = await Order.create({
       userId: req.user._id,
       restaurantId: restaurant._id,
@@ -173,6 +200,7 @@ router.post('/', async (req, res) => {
       deliveryFee,
       total,
       estimatedMinutes: restaurant.averageDeliveryTime,
+      ...(payment ? { payment } : {}),
       ...(deliveryAddress ? { deliveryAddress } : {})
     })
 
@@ -180,10 +208,68 @@ router.post('/', async (req, res) => {
     res.status(201).json(toResponse(order))
   } catch (error) {
     console.error('CREATE ORDER ERROR:', error)
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'This payment was already used for another order' })
+    }
     if (error.name === 'ValidationError' || error.name === 'CastError') {
       return res.status(400).json({ message: error.message })
     }
     res.status(500).json({ message: 'Could not create the order' })
+  }
+})
+
+const CUSTOMER_CANCELLABLE = ['pending', 'accepted']
+const CUSTOMER_COMPLETABLE = ['ready', 'delivering']
+
+router.patch('/:id/cancel', async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid order id' })
+    }
+
+    const order = await Order.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id, status: { $in: CUSTOMER_CANCELLABLE } },
+      { $set: { status: 'cancelled' }, $push: { stages: { status: 'cancelled' } } },
+      { new: true, runValidators: true }
+    ).populate(POPULATE_RESTAURANT)
+
+    if (!order) {
+      const exists = await Order.exists({ _id: req.params.id, userId: req.user._id })
+      if (!exists) return res.status(404).json({ message: 'Order not found' })
+      return res.status(400).json({ message: 'This order can no longer be cancelled' })
+    }
+
+    await refundOrderIfPaid(order)
+
+    res.json(toResponse(order))
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ message: 'Could not cancel the order' })
+  }
+})
+
+router.patch('/:id/complete', async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid order id' })
+    }
+
+    const order = await Order.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id, status: { $in: CUSTOMER_COMPLETABLE } },
+      { $set: { status: 'delivered' }, $push: { stages: { status: 'delivered' } } },
+      { new: true, runValidators: true }
+    ).populate(POPULATE_RESTAURANT)
+
+    if (order) return res.json(toResponse(order))
+
+    const existing = await Order.findOne({ _id: req.params.id, userId: req.user._id }).populate(POPULATE_RESTAURANT)
+    if (!existing) return res.status(404).json({ message: 'Order not found' })
+    if (existing.status === 'delivered') return res.json(toResponse(existing))
+
+    res.status(400).json({ message: 'The order is not ready to be completed yet' })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ message: 'Could not complete the order' })
   }
 })
 
@@ -202,26 +288,25 @@ const getFoodType = (date) => {
   return 'DINNER'
 }
 
-const ORDER_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'delivered', 'cancelled']
+const ORDER_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'delivering', 'delivered', 'cancelled']
 const DEFAULT_RESTAURANT_STATUSES = ['pending', 'accepted', 'preparing']
 
-const CHEF_STATUS_TO_ORDER = {
-  PENDING: 'pending',
-  RUNNING: 'preparing',
-  DONE: 'ready',
-  CANCELLED: 'cancelled'
+const STATUS_TRANSITIONS = {
+  pending: ['accepted', 'cancelled'],
+  accepted: ['preparing', 'cancelled'],
+  preparing: ['ready', 'cancelled'],
+  ready: ['delivered', 'cancelled'],
+  delivering: ['delivered'],
+  delivered: [],
+  cancelled: []
 }
-
-const ORDER_STATUS_TO_CHEF = Object.fromEntries(
-  Object.entries(CHEF_STATUS_TO_ORDER).map(([chefStatus, orderStatus]) => [orderStatus, chefStatus])
-)
 
 const CHEF_POPULATE = [
   POPULATE_RESTAURANT,
   { path: 'items.dishId', select: 'image', model: Dish }
 ]
 
-const toChefResponse = (order) => {
+const toRestaurantOrderResponse = (order) => {
   const data = order.toObject()
   const items = data.items ?? []
   const first = items[0]
@@ -237,17 +322,12 @@ const toChefResponse = (order) => {
     image,
     orderId: String(data._id).slice(-6).toUpperCase(),
     price: data.total,
-    status: ORDER_STATUS_TO_CHEF[data.status] ?? 'DONE',
-    createdAt: data.createdAt
+    status: data.status,
+    createdAt: data.createdAt,
+    restaurantId: data.restaurantId?._id ?? data.restaurantId,
+    itemsCount: items.reduce((sum, item) => sum + item.quantity, 0)
   }
 }
-
-const toRestaurantOrderResponse = (order) => ({
-  ...toChefResponse(order),
-  status: order.status,
-  restaurantId: order.restaurantId?._id ?? order.restaurantId,
-  itemsCount: (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0)
-})
 
 const getChefRestaurantIds = async (userId) => {
   const restaurants = await Restaurant.find({ ownerId: userId }).select('_id')
@@ -266,13 +346,13 @@ router.get('/restaurant', async (req, res) => {
       return res.status(400).json({ message: 'Invalid status' })
     }
 
-    const restaurants = await Restaurant.find({ ownerId: req.user._id }).select('_id')
-    if (restaurants.length === 0) {
+    const restaurantIds = await getChefRestaurantIds(req.user._id)
+    if (restaurantIds.length === 0) {
       return res.status(403).json({ message: 'This account does not own a restaurant' })
     }
 
     const orders = await Order.find({
-      restaurantId: { $in: restaurants.map((restaurant) => restaurant._id) },
+      restaurantId: { $in: restaurantIds },
       status: { $in: statuses }
     })
       .sort({ createdAt: -1 })
@@ -285,114 +365,56 @@ router.get('/restaurant', async (req, res) => {
   }
 })
 
-router.get('/chef', async (req, res) => {
+router.patch('/:id/status', async (req, res) => {
   try {
-    const chefStatus = String(req.query.status || 'RUNNING').toUpperCase()
-    const status = CHEF_STATUS_TO_ORDER[chefStatus]
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid order id' })
+    }
 
-    if (!status) {
+    const nextStatus = String(req.body?.status || '').trim().toLowerCase()
+    if (!ORDER_STATUSES.includes(nextStatus)) {
       return res.status(400).json({ message: 'Invalid status' })
     }
 
-    const restaurantIds = await getChefRestaurantIds(req.user._id)
-
-    const orders = await Order.find({ restaurantId: { $in: restaurantIds }, status })
-      .sort({ createdAt: -1 })
-      .populate(CHEF_POPULATE)
-
-    res.json({ count: orders.length, orders: orders.map(toChefResponse) })
-  } catch (error) {
-    console.error('CHEF LIST ERROR:', error)
-    res.status(500).json({ message: 'Could not load the orders' })
-  }
-})
-
-const chefChangeStatus = (fromChef, toChef) => async (req, res) => {
-  try {
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid order id' })
+    const order = await Order.findById(req.params.id)
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' })
     }
 
-    const fromStatus = CHEF_STATUS_TO_ORDER[fromChef]
-    const toStatus = CHEF_STATUS_TO_ORDER[toChef]
+    const restaurant = await Restaurant.findOne({
+      _id: order.restaurantId,
+      ownerId: req.user._id
+    }).select('_id')
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Order not found' })
+    }
 
-    const restaurantIds = await getChefRestaurantIds(req.user._id)
+    const allowed = STATUS_TRANSITIONS[order.status] ?? []
+    if (!allowed.includes(nextStatus)) {
+      return res.status(400).json({
+        message: `Cannot change an order from ${order.status} to ${nextStatus}`
+      })
+    }
 
-    const order = await Order.findOneAndUpdate(
-      { _id: req.params.id, restaurantId: { $in: restaurantIds }, status: fromStatus },
-      { $set: { status: toStatus }, $push: { stages: { status: toStatus } } },
-      { new: true }
+    const updated = await Order.findOneAndUpdate(
+      { _id: order._id, status: order.status },
+      { $set: { status: nextStatus }, $push: { stages: { status: nextStatus } } },
+      { new: true, runValidators: true }
     ).populate(CHEF_POPULATE)
 
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found or already updated' })
+    if (!updated) {
+      return res.status(409).json({ message: 'The order was updated by someone else, try again' })
     }
 
-    res.json(toChefResponse(order))
+    if (nextStatus === 'cancelled') {
+      await refundOrderIfPaid(updated)
+    }
+    await notifyCustomerOfStatus(updated, req.user._id)
+
+    res.json(toRestaurantOrderResponse(updated))
   } catch (error) {
-    console.error('CHEF CHANGE STATUS ERROR:', error)
+    console.error('UPDATE ORDER STATUS ERROR:', error)
     res.status(500).json({ message: 'Could not update the order' })
-  }
-}
-
-router.patch('/chef/:id/accept', chefChangeStatus('PENDING', 'RUNNING'))
-router.patch('/chef/:id/decline', chefChangeStatus('PENDING', 'CANCELLED'))
-router.patch('/chef/:id/done', chefChangeStatus('RUNNING', 'DONE'))
-router.patch('/chef/:id/cancel', chefChangeStatus('RUNNING', 'CANCELLED'))
-
-router.patch('/:id/cancel', async (req, res) => {
-  try {
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid order id' })
-    }
-
-    const order = await Order.findOne({ _id: req.params.id, userId: req.user._id })
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' })
-    }
-
-    if (order.status === 'delivered' || order.status === 'cancelled') {
-      return res.status(400).json({ message: 'This order can no longer be cancelled' })
-    }
-
-    order.status = 'cancelled'
-    order.stages.push({ status: 'cancelled' })
-    await order.save()
-
-    await order.populate(POPULATE_RESTAURANT)
-    res.json(toResponse(order))
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({ message: 'Could not cancel the order' })
-  }
-})
-
-router.patch('/:id/complete', async (req, res) => {
-  try {
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid order id' })
-    }
-
-    const order = await Order.findOne({ _id: req.params.id, userId: req.user._id })
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' })
-    }
-
-    if (order.status === 'cancelled') {
-      return res.status(400).json({ message: 'A cancelled order cannot be completed' })
-    }
-
-    if (order.status !== 'delivered') {
-      order.status = 'delivered'
-      order.stages.push({ status: 'delivered' })
-      await order.save()
-    }
-
-    await order.populate(POPULATE_RESTAURANT)
-    res.json(toResponse(order))
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({ message: 'Could not complete the order' })
   }
 })
 

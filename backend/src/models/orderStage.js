@@ -4,7 +4,7 @@ export const orderStageSchema = new mongoose.Schema(
     {
         status: {
             type: String,
-            enum: ['pending', 'preparing', 'ready', 'delivering', 'delivered', 'cancelled'],
+            enum: ['pending', 'preparing', 'ready', 'delivering', 'delivered', 'accepted', 'cancelled'],
             required: true
         },
         at: { type: Date, default: Date.now },

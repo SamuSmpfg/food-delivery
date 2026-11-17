@@ -1,20 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, Animated, PanResponder, Dimensions, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { View, Text, Animated, PanResponder, Dimensions, StyleSheet, ActivityIndicator, TouchableOpacity, Image } from 'react-native'
 import MapView, { Marker } from 'react-native-maps'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRouter, useLocalSearchParams } from 'expo-router'
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'
+import { useAuth } from '@clerk/clerk-expo'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5'
-import { useCart } from '../../context/CartContext'
 import useLocation from '../../../hooks/useLocation'
 import useBackHandler from '../../../hooks/useBackHandler'
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL
 
 const SCREEN_HEIGHT = Dimensions.get('window').height
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.7
 const COLLAPSED_HEIGHT = 210
 const MAX_OFFSET = SHEET_HEIGHT - COLLAPSED_HEIGHT
-const PICKED_UP_AT = 0.4
-const ARRIVING_AT = 0.8
+const POLL_INTERVAL_MS = 10000
+const RECENT_FINISHED_MS = 60 * 60 * 1000
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 
@@ -24,6 +26,38 @@ const STEPS = [
   'Your order has been picked up for delivery',
   'Order arriving soon!'
 ]
+
+type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivering' | 'delivered' | 'cancelled'
+
+type ApiOrderItem = {
+  _id?: string
+  name: string
+  quantity: number
+}
+
+type ApiOrder = {
+  _id: string
+  status: OrderStatus
+  items: ApiOrderItem[]
+  restaurantName?: string
+  restaurantImage?: string
+  estimatedMinutes?: number
+  createdAt: string
+  updatedAt: string
+}
+
+const ACTIVE_STATUSES: OrderStatus[] = ['pending', 'accepted', 'preparing', 'ready', 'delivering']
+
+// Quantos passos já foram concluídos para cada status (4 = tudo concluído).
+const STAGE_BY_STATUS: Record<OrderStatus, number> = {
+  pending: 0,
+  accepted: 1,
+  preparing: 1,
+  ready: 2,
+  delivering: 3,
+  delivered: STEPS.length,
+  cancelled: 0
+}
 
 const formatOrderedAt = (timestamp: number) => {
   const date = new Date(timestamp)
@@ -39,9 +73,14 @@ const TrackingOrder = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { from } = useLocalSearchParams<{ from?: string }>()
-  const { order, completeOrder } = useCart()
+  const { getToken, isLoaded, isSignedIn } = useAuth()
   const { latitude, longitude, getLocation } = useLocation()
   const [now, setNow] = useState(Date.now())
+  const [orders, setOrders] = useState<ApiOrder[]>([])
+  const [loaded, setLoaded] = useState(false)
+
+  const getTokenRef = useRef(getToken)
+  getTokenRef.current = getToken
 
   const translateY = useRef(new Animated.Value(0)).current
   const currentY = useRef(0)
@@ -51,10 +90,32 @@ const TrackingOrder = () => {
     getLocation()
   }, [])
 
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 10000)
-    return () => clearInterval(interval)
-  }, [])
+  const fetchOrders = useCallback(async () => {
+    if (!isLoaded || !isSignedIn || !API_URL) return
+    try {
+      const token = await getTokenRef.current()
+      const res = await fetch(`${API_URL}/api/orders`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!res.ok) throw new Error(`Erro ${res.status}`)
+      const data: ApiOrder[] = await res.json()
+      setOrders(data)
+    } catch (error) {
+      console.error('Error loading orders:', error)
+    } finally {
+      setLoaded(true)
+      setNow(Date.now())
+    }
+  }, [isLoaded, isSignedIn])
+
+  // Busca ao focar a tela e repete a cada 10 s enquanto ela estiver em foco.
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders()
+      const interval = setInterval(fetchOrders, POLL_INTERVAL_MS)
+      return () => clearInterval(interval)
+    }, [fetchOrders])
+  )
 
   const handleBack = () => {
     if (from === 'orders' && router.canGoBack()) {
@@ -108,12 +169,20 @@ const TrackingOrder = () => {
     })
   ).current
 
-  const restaurantNames = useMemo(
-    () => Array.from(new Set((order?.items ?? []).map((item) => item.restaurant).filter(Boolean))),
-    [order]
-  )
+  // Pedido em andamento mais recente. Se não houver, mostra um pedido
+  // entregue/cancelado na última hora para o cliente ver o desfecho.
+  const order = useMemo(() => {
+    const active = orders.find((item) => ACTIVE_STATUSES.includes(item.status))
+    if (active) return active
 
-  const etaMinutes = order?.etaMinutes && order.etaMinutes > 0 ? order.etaMinutes : 30
+    return (
+      orders.find(
+        (item) =>
+          (item.status === 'delivered' || item.status === 'cancelled') &&
+          now - new Date(item.updatedAt).getTime() < RECENT_FINISHED_MS
+      ) ?? null
+    )
+  }, [orders, now])
 
   const detailsOpacity = translateY.interpolate({
     inputRange: [0, MAX_OFFSET * 0.6],
@@ -121,22 +190,27 @@ const TrackingOrder = () => {
     extrapolate: 'clamp'
   })
 
-  const totalMs = etaMinutes * 60000
-  const elapsed = order ? now - order.placedAt : 0
-  const progress = totalMs > 0 ? elapsed / totalMs : 0
-  const delivered = !!order && elapsed >= totalMs
-  const stage = delivered
-    ? STEPS.length
-    : progress >= ARRIVING_AT
-      ? 3
-      : progress >= PICKED_UP_AT
-        ? 2
-        : 1
-  const remaining = Math.max(0, Math.ceil((totalMs - elapsed) / 60000))
+  const cancelled = order?.status === 'cancelled'
+  const delivered = order?.status === 'delivered'
+  const stage = order ? STAGE_BY_STATUS[order.status] : 0
 
-  useEffect(() => {
-    if (delivered) completeOrder()
-  }, [delivered])
+  const etaMinutes = order?.estimatedMinutes && order.estimatedMinutes > 0 ? order.estimatedMinutes : 30
+  const elapsed = order ? now - new Date(order.createdAt).getTime() : 0
+  const remaining = Math.max(0, Math.ceil((etaMinutes * 60000 - elapsed) / 60000))
+
+  const etaValue = cancelled
+    ? 'Cancelled'
+    : delivered
+      ? 'Delivered'
+      : remaining > 0
+        ? `${remaining} min`
+        : 'Soon'
+
+  const etaLabel = cancelled
+    ? 'THIS ORDER WAS CANCELLED'
+    : delivered
+      ? 'ENJOY YOUR MEAL!'
+      : 'ESTIMATED DELIVERY TIME'
 
   const hasLocation = latitude !== null && longitude !== null
 
@@ -182,18 +256,26 @@ const TrackingOrder = () => {
       >
         <View style={styles.handle} />
 
-        {order ? (
+        {!loaded ? (
+          <View style={styles.empty}>
+            <ActivityIndicator color="#F07F2E" />
+          </View>
+        ) : order ? (
           <View style={styles.sheetContent}>
             <View style={styles.orderHeader}>
-              <View style={styles.restaurantImage} />
+              {order.restaurantImage ? (
+                <Image source={{ uri: order.restaurantImage }} style={styles.restaurantImage} resizeMode="cover" />
+              ) : (
+                <View style={styles.restaurantImage} />
+              )}
               <View style={styles.orderInfo}>
                 <Text style={styles.restaurantName} numberOfLines={1}>
-                  {restaurantNames.join(', ')}
+                  {order.restaurantName ?? ''}
                 </Text>
-                <Text style={styles.orderedAt}>Ordered At {formatOrderedAt(order.placedAt)}</Text>
+                <Text style={styles.orderedAt}>Ordered At {formatOrderedAt(new Date(order.createdAt).getTime())}</Text>
                 <View style={styles.itemsList}>
-                  {order.items.map((item) => (
-                    <Text key={item.key} style={styles.itemText} numberOfLines={1}>
+                  {order.items.map((item, index) => (
+                    <Text key={item._id ?? String(index)} style={styles.itemText} numberOfLines={1}>
                       <Text style={styles.itemQuantity}>{item.quantity}x </Text>
                       {item.name}
                     </Text>
@@ -204,70 +286,72 @@ const TrackingOrder = () => {
 
             <Animated.View style={[styles.details, { opacity: detailsOpacity }]}>
               <View style={styles.etaBlock}>
-                <Text style={styles.etaValue}>{delivered ? 'Delivered' : `${remaining} min`}</Text>
-                <Text style={styles.etaLabel}>
-                  {delivered ? 'ENJOY YOUR MEAL!' : 'ESTIMATED DELIVERY TIME'}
-                </Text>
+                <Text style={styles.etaValue}>{etaValue}</Text>
+                <Text style={styles.etaLabel}>{etaLabel}</Text>
               </View>
 
-              <View style={styles.steps}>
-                {STEPS.map((label, index) => {
-                  const done = index < stage
-                  const active = index === stage
-                  const isLast = index === STEPS.length - 1
-                  return (
-                    <View key={label} style={styles.stepRow}>
-                      <View style={styles.stepIndicator}>
-                        <View
-                          style={[
-                            styles.stepDot,
-                            { backgroundColor: done || active ? '#F07F2E' : '#BDBBB9' }
-                          ]}
-                        >
-                          {active ? (
-                            <ActivityIndicator size="small" color="#fff" style={styles.spinner} />
-                          ) : (
-                            <Ionicons name="checkmark" size={12} color="#fff" />
-                          )}
-                        </View>
-                        {!isLast && (
+              {!cancelled && (
+                <View style={styles.steps}>
+                  {STEPS.map((label, index) => {
+                    const done = index < stage
+                    const active = index === stage
+                    const isLast = index === STEPS.length - 1
+                    return (
+                      <View key={label} style={styles.stepRow}>
+                        <View style={styles.stepIndicator}>
                           <View
                             style={[
-                              styles.stepLine,
-                              { backgroundColor: done ? '#F07F2E' : '#A0A5BA' }
+                              styles.stepDot,
+                              { backgroundColor: done || active ? '#F07F2E' : '#BDBBB9' }
                             ]}
-                          />
-                        )}
+                          >
+                            {active ? (
+                              <ActivityIndicator size="small" color="#fff" style={styles.spinner} />
+                            ) : (
+                              <Ionicons name="checkmark" size={12} color="#fff" />
+                            )}
+                          </View>
+                          {!isLast && (
+                            <View
+                              style={[
+                                styles.stepLine,
+                                { backgroundColor: done ? '#F07F2E' : '#A0A5BA' }
+                              ]}
+                            />
+                          )}
+                        </View>
+                        <Text style={[styles.stepLabel, { color: done ? '#F07F2E' : '#A0A5BA' }]}>
+                          {label}
+                        </Text>
                       </View>
-                      <Text style={[styles.stepLabel, { color: done ? '#F07F2E' : '#A0A5BA' }]}>
-                        {label}
-                      </Text>
-                    </View>
-                  )
-                })}
-              </View>
+                    )
+                  })}
+                </View>
+              )}
 
-              <View style={[styles.courierCard, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-                <View style={styles.courierAvatar}>
-                  <Ionicons name="person" size={28} color="#fff" />
+              {!cancelled && (
+                <View style={[styles.courierCard, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+                  <View style={styles.courierAvatar}>
+                    <Ionicons name="person" size={28} color="#fff" />
+                  </View>
+                  <View style={styles.courierInfo}>
+                    <Text style={styles.courierName}>Robert F.</Text>
+                    <Text style={styles.courierRole}>Courier</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.callButton}
+                    onPress={() => router.navigate('/(tabs)/Call')}
+                  >
+                    <Ionicons name="call" size={20} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.messageButton}
+                    onPress={() => router.navigate('/(tabs)/Chat')}
+                  >
+                    <FontAwesome5 name="facebook-messenger" size={24} color="#F07F2E" />
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.courierInfo}>
-                  <Text style={styles.courierName}>Robert F.</Text>
-                  <Text style={styles.courierRole}>Courier</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.callButton}
-                  onPress={() => router.navigate('/(tabs)/Call')}
-                >
-                  <Ionicons name="call" size={20} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.messageButton}
-                  onPress={() => router.navigate('/(tabs)/Chat')}
-                >
-                  <FontAwesome5 name="facebook-messenger" size={24} color="#F07F2E" />
-                </TouchableOpacity>
-              </View>
+              )}
             </Animated.View>
           </View>
         ) : (

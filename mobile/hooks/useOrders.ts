@@ -26,7 +26,6 @@ const useOrders = () => {
   const refetch = useCallback(async () => {
     try {
       const token = await getTokenRef.current()
-      console.log('TOKEN_CHEF', token)
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/orders`, {
         headers: { Authorization: `Bearer ${token}` },
       })

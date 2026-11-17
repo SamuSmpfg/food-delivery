@@ -7,7 +7,7 @@ const TabsLayout = () => {
   const { role, isLoaded } = useRole()
 
   if (!isLoaded) return null
-  if (role === 'chef') return <Redirect href="/(chef)" />
+  if (role === 'chef') return <Redirect href="/(chef)/(tabs)/(home)" />
 
   return (
     <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}>
