@@ -34,11 +34,11 @@ const Profile = () => {
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/chef-profile`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!response.ok) throw new Error(`Falha ao buscar perfil: ${response.status}`)
+      if (!response.ok) throw new Error(`Failed to fetch profile: ${response.status}`)
       const json = await response.json()
       setData({ balance: json.balance, ordersCount: json.ordersCount })
     } catch (err) {
-      console.error('Erro ao carregar perfil:', err)
+      console.error('Error loading profile:', err)
       setError(true)
     } finally {
       setLoading(false)

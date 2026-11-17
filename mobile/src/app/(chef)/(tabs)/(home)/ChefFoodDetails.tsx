@@ -47,7 +47,6 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL
 
 const CLASSIFICATIONS = ['Breakfast', 'Lunch', 'Dinner']
 const DELIVERY_MODES = ['Delivery', 'Pickup', 'Dine-in']
-// Deve bater com o enum de `kind` do ingredientSchema no backend
 const DEFAULT_KIND = 'Basic'
 
 const EMPTY_FOOD: Food = {

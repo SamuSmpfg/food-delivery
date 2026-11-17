@@ -24,7 +24,6 @@ app.use('/api/payments', paymentRoutes)
 app.use('/api/admin', chefInvitationsRoutes)
 app.use('/api/chef-applications', chefApplicationsRoutes)
 app.use('/api/chef/orders', chefOrders);
-app.use('/api/running-orders', runningOrdersRoutes)
 app.use('/api/graph', graphRoutes)
 app.use('/api', routes)
 

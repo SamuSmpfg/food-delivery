@@ -35,10 +35,4 @@ const AnimatedText = ({ selectedValue, font }: Props) => {
   )
 }
 
-const styles = StyleSheet.create({
-  priceText: {
-
-  }
-})
-
 export default AnimatedText

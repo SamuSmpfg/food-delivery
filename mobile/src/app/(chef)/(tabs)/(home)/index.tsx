@@ -74,10 +74,11 @@ async function api<T>(path: string, token: string | null, method: string = 'GET'
   })
 
   if (!res.ok) {
+
     const body = await res.json().catch(() => null)
     throw new Error(body?.message ?? `Erro ${res.status}`)
   }
-
+  
   return res.json()
 }
 
@@ -146,7 +147,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     if (!authReady) return
     try {
       const token = await getTokenRef.current()
-      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/running-orders', token)
+      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/orders/chef?status=RUNNING', token)
       setRunningOrders(res.orders)
     } catch (error) {
       console.error('Erro ao carregar pedidos:', error)
@@ -159,10 +160,10 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     if (!authReady) return
     try {
       const token = await getTokenRef.current()
-      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/running-orders?status=PENDING', token)
+     const res = await api<{ count: number; orders: RunningOrder[] }>('/api/orders/restaurant?status=pending', token)
       setOrderRequests(res.orders)
     } catch (error) {
-      console.error('Erro ao carregar order requests:', error)
+      console.error('Error loading order requests:', error)
     } finally {
       setRequestsLoaded(true)
     }
@@ -175,7 +176,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
       const res = await api<ReviewsSummary>('/api/reviews/mine/summary', token)
       setReviewsSummary({ average: res.average ?? 0, total: res.total ?? 0 })
     } catch (error) {
-      console.error('Erro ao carregar resumo das reviews:', error)
+      console.error('Error loading review summary:', error)
     }
   }, [authReady])
 
@@ -196,9 +197,9 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     } catch (error) {
       if (requestId !== graphRequestRef.current) return
 
-      console.error('Erro ao carregar gráfico:', error)
+      console.error('Error loading chart:', error)
       setGraph(null)
-      setGraphError(error instanceof Error ? error.message : 'Erro ao carregar gráfico')
+      setGraphError(error instanceof Error ? error.message : 'Error loading chart')
     }
   }, [period, selectedValue, authReady])
 
@@ -250,7 +251,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     async (item: RunningOrder) => {
       try {
         const token = await getTokenRef.current()
-        await api(`/api/running-orders/${item._id}/done`, token, 'PATCH')
+        await api(`/api/orders/chef/${item._id}/done`, token, 'PATCH')
         setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
         loadGraph()
       } catch (error) {
@@ -273,7 +274,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
             onPress: async () => {
               try {
                 const token = await getTokenRef.current()
-                await api(`/api/running-orders/${item._id}/cancel`, token, 'PATCH')
+                await api(`/api/orders/chef/${item._id}/cancel`, token, 'PATCH')
                 setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
                 onCancel?.(item.orderId)
               } catch (error) {
@@ -292,7 +293,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     async (item: RunningOrder) => {
       try {
         const token = await getTokenRef.current()
-        await api(`/api/running-orders/${item._id}/accept`, token, 'PATCH')
+        await api(`/api/orders/chef/${item._id}/accept`, token, 'PATCH')
 
         setOrderRequests((prev) => prev.filter((o) => o._id !== item._id))
         setRunningOrders((prev) => [{ ...item, status: 'RUNNING' }, ...prev])
@@ -316,7 +317,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
             onPress: async () => {
               try {
                 const token = await getTokenRef.current()
-                await api(`/api/running-orders/${item._id}/decline`, token, 'PATCH')
+                await api(`/api/orders/chef/${item._id}/decline`, token, 'PATCH')
                 setOrderRequests((prev) => prev.filter((o) => o._id !== item._id))
               } catch (error) {
                 Alert.alert('Error', error instanceof Error ? error.message : 'Could not decline the order')
@@ -494,7 +495,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
           contentContainerStyle={styles.sheetContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <Text style={styles.ordinarySheetText}>{runningOrders.length} Running orders</Text>
+            <Text style={styles.ordinarySheetText} numberOfLines={1}>{runningOrders.length} Running orders</Text>
           }
           ListEmptyComponent={
             <Text style={styles.emptyListText}>No running orders</Text>
@@ -506,9 +507,9 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
               ) : (
                 <View style={styles.foodImgSheet} />
               )}
-              <View style={{ flexDirection: 'column', gap: 4, marginLeft: 16 }}>
+              <View style={{ flexDirection: 'column', gap: 4, marginLeft: 16}}>
                 <Text style={styles.foodClass}>{item.foodType}</Text>
-                <Text style={styles.foodName}>{item.name}</Text>
+                <Text style={styles.foodName} numberOfLines={1} ellipsizeMode='tail'>{item.name}</Text>
                 <Text style={styles.foodId}>ID: {item.orderId}</Text>
 
                 <View style={styles.sheetButtons}>
@@ -671,12 +672,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginVertical: 16,
     alignItems: 'center',
+    maxWidth: '50%',
   },
   foodImgSheet: {
     height: 102,
     width: 102,
     borderRadius: 20,
-    backgroundColor: '#98A8B8'
+    backgroundColor: '#98A8B8',
   },
   foodClass: {
     color: '#ED7A63',
@@ -691,7 +693,7 @@ const styles = StyleSheet.create({
   foodName: {
     color: '#32343E',
     fontFamily: 'Sen_700Bold',
-    fontSize: 14
+    fontSize: 14,
   },
   priceAndTouchableOpacities: {
     flexDirection: 'row',
@@ -735,7 +737,7 @@ const styles = StyleSheet.create({
   ordinarySheetText: {
     fontFamily: 'Sen_400Regular',
     fontSize: 17,
-    color: '#181C2E'
+    color: '#181C2E',
   },
   emptyListText: {
     fontFamily: 'Sen_400Regular',

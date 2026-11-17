@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@clerk/clerk-expo'
 
-export type OrderStatus = 'pending' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled'
+export type OrderStatus = 'pending' | 'preparing' | 'delivering' | 'delivered' | 'cancelled'
 
 export type Order = {
   _id: string
@@ -26,6 +26,7 @@ const useOrders = () => {
   const refetch = useCallback(async () => {
     try {
       const token = await getTokenRef.current()
+      console.log('TOKEN_CHEF', token)
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/orders`, {
         headers: { Authorization: `Bearer ${token}` },
       })

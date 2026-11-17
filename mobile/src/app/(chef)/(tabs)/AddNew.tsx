@@ -46,7 +46,6 @@ const AddNew = (props: Props) => {
   const [saving, setSaving] = useState(false)
   const [resetKey, setResetKey] = useState(0)
 
-  // o IngredientList deve chamar onToggle({ id, name, kind })
   const toggleIngredient = (ing: SelectedIngredient) => {
     setSelectedIngredients((prev) =>
       prev.some((i) => i.id === ing.id)
@@ -105,7 +104,6 @@ const AddNew = (props: Props) => {
           deliveryMode: option === 'pickup' ? 'Pickup' : 'Delivery',
           sizes: [{ label: 'Único', price: priceNumber }],
           ingredients: selectedIngredients.map(({ name, kind }) => ({ name, kind })),
-          // se o backend exigir: classification, category, restaurantId
         }),
       })
 

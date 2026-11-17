@@ -39,13 +39,13 @@ const requireUser = async (req, res, next) => {
   try {
     const { userId: clerkId } = getAuth(req)
     if (!clerkId) {
-      console.log('ORDERS 401: requisição sem usuário autenticado no Clerk', req.method, req.originalUrl)
+      console.log('ORDERS 401: request without an authenticated user in Clerk', req.method, req.originalUrl)
       return res.status(401).json({ message: 'Unauthorized' })
     }
 
     const user = await findOrCreateUser(clerkId)
     if (!user) {
-      console.log('ORDERS 404: usuário do Clerk sem email', clerkId)
+      console.log('ORDERS 404: Clerk user without an email', clerkId)
       return res.status(404).json({ message: 'User not found (the account has no email address)' })
     }
 
@@ -95,10 +95,9 @@ router.get('/', async (req, res) => {
   }
 })
 
-
 router.post('/', async (req, res) => {
   try {
-    console.log('POST /api/orders recebido', JSON.stringify(req.body))
+    console.log('POST /api/orders received', JSON.stringify(req.body))
     const { restaurantId, items, deliveryAddress } = req.body
 
     if (!mongoose.isValidObjectId(restaurantId)) {
@@ -147,7 +146,7 @@ router.post('/', async (req, res) => {
       console.log('SIZE DEBUG', JSON.stringify(dish.sizes), JSON.stringify(size))
 
       if (!size.label || typeof size.price !== 'number') {
-        console.error('Prato com tamanho malformado:', String(dish._id), JSON.stringify(dish.sizes))
+        console.error('Dish with an irregularly shaped size:', String(dish._id), JSON.stringify(dish.sizes))
         return res.status(400).json({ message: `The dish ${dish.name} has a malformed size (missing label or price)` })
       }
 
@@ -187,6 +186,159 @@ router.post('/', async (req, res) => {
     res.status(500).json({ message: 'Could not create the order' })
   }
 })
+
+const FOOD_TIMEZONE = 'America/Sao_Paulo'
+
+const hourFormatter = new Intl.DateTimeFormat('en-US', {
+  hour: 'numeric',
+  hourCycle: 'h23',
+  timeZone: FOOD_TIMEZONE
+})
+
+const getFoodType = (date) => {
+  const hour = Number(hourFormatter.format(new Date(date)))
+  if (hour < 11) return 'BREAKFAST'
+  if (hour < 16) return 'LUNCH'
+  return 'DINNER'
+}
+
+const ORDER_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'delivered', 'cancelled']
+const DEFAULT_RESTAURANT_STATUSES = ['pending', 'accepted', 'preparing']
+
+const CHEF_STATUS_TO_ORDER = {
+  PENDING: 'pending',
+  RUNNING: 'preparing',
+  DONE: 'ready',
+  CANCELLED: 'cancelled'
+}
+
+const ORDER_STATUS_TO_CHEF = Object.fromEntries(
+  Object.entries(CHEF_STATUS_TO_ORDER).map(([chefStatus, orderStatus]) => [orderStatus, chefStatus])
+)
+
+const CHEF_POPULATE = [
+  POPULATE_RESTAURANT,
+  { path: 'items.dishId', select: 'image', model: Dish }
+]
+
+const toChefResponse = (order) => {
+  const data = order.toObject()
+  const items = data.items ?? []
+  const first = items[0]
+  const extra = items.length - 1
+
+  const name = first ? (extra > 0 ? `${first.name} +${extra} more` : first.name) : 'Order'
+  const image = first?.dishId?.image ?? data.restaurantId?.image ?? null
+
+  return {
+    _id: data._id,
+    foodType: getFoodType(data.createdAt),
+    name,
+    image,
+    orderId: String(data._id).slice(-6).toUpperCase(),
+    price: data.total,
+    status: ORDER_STATUS_TO_CHEF[data.status] ?? 'DONE',
+    createdAt: data.createdAt
+  }
+}
+
+const toRestaurantOrderResponse = (order) => ({
+  ...toChefResponse(order),
+  status: order.status,
+  restaurantId: order.restaurantId?._id ?? order.restaurantId,
+  itemsCount: (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0)
+})
+
+const getChefRestaurantIds = async (userId) => {
+  const restaurants = await Restaurant.find({ ownerId: userId }).select('_id')
+  return restaurants.map((restaurant) => restaurant._id)
+}
+
+router.get('/restaurant', async (req, res) => {
+  try {
+    const rawStatus = String(req.query.status || DEFAULT_RESTAURANT_STATUSES.join(','))
+    const statuses = rawStatus
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+
+    if (statuses.length === 0 || statuses.some((value) => !ORDER_STATUSES.includes(value))) {
+      return res.status(400).json({ message: 'Invalid status' })
+    }
+
+    const restaurants = await Restaurant.find({ ownerId: req.user._id }).select('_id')
+    if (restaurants.length === 0) {
+      return res.status(403).json({ message: 'This account does not own a restaurant' })
+    }
+
+    const orders = await Order.find({
+      restaurantId: { $in: restaurants.map((restaurant) => restaurant._id) },
+      status: { $in: statuses }
+    })
+      .sort({ createdAt: -1 })
+      .populate(CHEF_POPULATE)
+
+    res.json({ count: orders.length, orders: orders.map(toRestaurantOrderResponse) })
+  } catch (error) {
+    console.error('RESTAURANT ORDERS ERROR:', error)
+    res.status(500).json({ message: 'Could not load the orders' })
+  }
+})
+
+router.get('/chef', async (req, res) => {
+  try {
+    const chefStatus = String(req.query.status || 'RUNNING').toUpperCase()
+    const status = CHEF_STATUS_TO_ORDER[chefStatus]
+
+    if (!status) {
+      return res.status(400).json({ message: 'Invalid status' })
+    }
+
+    const restaurantIds = await getChefRestaurantIds(req.user._id)
+
+    const orders = await Order.find({ restaurantId: { $in: restaurantIds }, status })
+      .sort({ createdAt: -1 })
+      .populate(CHEF_POPULATE)
+
+    res.json({ count: orders.length, orders: orders.map(toChefResponse) })
+  } catch (error) {
+    console.error('CHEF LIST ERROR:', error)
+    res.status(500).json({ message: 'Could not load the orders' })
+  }
+})
+
+const chefChangeStatus = (fromChef, toChef) => async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid order id' })
+    }
+
+    const fromStatus = CHEF_STATUS_TO_ORDER[fromChef]
+    const toStatus = CHEF_STATUS_TO_ORDER[toChef]
+
+    const restaurantIds = await getChefRestaurantIds(req.user._id)
+
+    const order = await Order.findOneAndUpdate(
+      { _id: req.params.id, restaurantId: { $in: restaurantIds }, status: fromStatus },
+      { $set: { status: toStatus }, $push: { stages: { status: toStatus } } },
+      { new: true }
+    ).populate(CHEF_POPULATE)
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found or already updated' })
+    }
+
+    res.json(toChefResponse(order))
+  } catch (error) {
+    console.error('CHEF CHANGE STATUS ERROR:', error)
+    res.status(500).json({ message: 'Could not update the order' })
+  }
+}
+
+router.patch('/chef/:id/accept', chefChangeStatus('PENDING', 'RUNNING'))
+router.patch('/chef/:id/decline', chefChangeStatus('PENDING', 'CANCELLED'))
+router.patch('/chef/:id/done', chefChangeStatus('RUNNING', 'DONE'))
+router.patch('/chef/:id/cancel', chefChangeStatus('RUNNING', 'CANCELLED'))
 
 router.patch('/:id/cancel', async (req, res) => {
   try {
