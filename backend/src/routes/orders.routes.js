@@ -69,6 +69,58 @@ router.use((req, res, next) => {
 router.use(requireUser)
 
 const POPULATE_RESTAURANT = { path: 'restaurantId', select: 'name image' }
+const getRestaurantObjectId = (order) => order.restaurantId?._id ?? order.restaurantId
+const creditRestaurantBalance = async (order) => {
+  const marked = await Order.findOneAndUpdate(
+    { _id: order._id, balanceCredited: false },
+    { $set: { balanceCredited: true, 'paymentStatus.status': 'paid' } },
+    { new: true }
+  )
+  if (!marked) return false
+
+  try {
+    await Restaurant.updateOne(
+      { _id: getRestaurantObjectId(order) },
+      { $inc: { availableBalance: order.total } }
+    )
+    return true
+  } catch (error) {
+    await Order.updateOne(
+      { _id: order._id },
+      { $set: { balanceCredited: false, 'paymentStatus.status': 'unpaid' } }
+    )
+    throw error
+  }
+}
+
+const debitRestaurantBalance = async (order) => {
+  const marked = await Order.findOneAndUpdate(
+    { _id: order._id, balanceCredited: true },
+    { $set: { balanceCredited: false, 'paymentStatus.status': 'unpaid' } },
+    { new: true }
+  )
+  if (!marked) return false
+
+  try {
+    await Restaurant.updateOne(
+      { _id: getRestaurantObjectId(order) },
+      { $inc: { availableBalance: -order.total } }
+    )
+    return true
+  } catch (error) {
+    await Order.updateOne(
+      { _id: order._id },
+      { $set: { balanceCredited: true, 'paymentStatus.status': 'paid' } }
+    )
+    throw error
+  }
+}
+
+const creditCashOrderIfDelivered = async (order) => {
+  if (order && order.status === 'delivered' && order.paymentMethod === 'cash') {
+    await creditRestaurantBalance(order)
+  }
+}
 
 const toResponse = (order) => {
   const data = order.toObject()
@@ -108,6 +160,12 @@ router.post('/', async (req, res) => {
         ? req.body.paymentIntentId.trim()
         : null
 
+    const paymentMethod = paymentIntentId
+      ? 'card'
+      : req.body.paymentMethod === 'cash'
+        ? 'cash'
+        : 'card'
+
     if (!mongoose.isValidObjectId(restaurantId)) {
       return res.status(400).json({ message: 'Invalid restaurant id' })
     }
@@ -120,7 +178,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Invalid dish id' })
     }
 
-    if (!paymentIntentId && REQUIRE_PAYMENT_INTENT) {
+    if (paymentMethod === 'card' && !paymentIntentId && REQUIRE_PAYMENT_INTENT) {
       return res.status(400).json({ message: 'A confirmed payment is required' })
     }
 
@@ -200,9 +258,14 @@ router.post('/', async (req, res) => {
       deliveryFee,
       total,
       estimatedMinutes: restaurant.averageDeliveryTime,
+      paymentMethod,
       ...(payment ? { payment } : {}),
       ...(deliveryAddress ? { deliveryAddress } : {})
     })
+
+    if (paymentMethod === 'card' && payment) {
+      await creditRestaurantBalance(order)
+    }
 
     await order.populate(POPULATE_RESTAURANT)
     res.status(201).json(toResponse(order))
@@ -240,6 +303,7 @@ router.patch('/:id/cancel', async (req, res) => {
     }
 
     await refundOrderIfPaid(order)
+    await debitRestaurantBalance(order)
 
     res.json(toResponse(order))
   } catch (error) {
@@ -260,7 +324,10 @@ router.patch('/:id/complete', async (req, res) => {
       { new: true, runValidators: true }
     ).populate(POPULATE_RESTAURANT)
 
-    if (order) return res.json(toResponse(order))
+    if (order) {
+      await creditCashOrderIfDelivered(order)
+      return res.json(toResponse(order))
+    }
 
     const existing = await Order.findOne({ _id: req.params.id, userId: req.user._id }).populate(POPULATE_RESTAURANT)
     if (!existing) return res.status(404).json({ message: 'Order not found' })
@@ -408,7 +475,17 @@ router.patch('/:id/status', async (req, res) => {
 
     if (nextStatus === 'cancelled') {
       await refundOrderIfPaid(updated)
+      await debitRestaurantBalance(updated)
     }
+
+    if (nextStatus === 'delivered') {
+      await creditCashOrderIfDelivered(updated)
+    }
+
+    if (nextStatus === 'accepted' && updated.paymentMethod === 'card') {
+  await creditRestaurantBalance(updated)
+}
+
     await notifyCustomerOfStatus(updated, req.user._id)
 
     res.json(toRestaurantOrderResponse(updated))

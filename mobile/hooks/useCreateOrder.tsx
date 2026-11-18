@@ -11,6 +11,8 @@ type NewOrderItem = {
 type NewOrder = {
   restaurantId: string
   items: NewOrderItem[]
+  // 'cash' = dinheiro na entrega, 'card' = pagamento online
+  paymentMethod?: 'cash' | 'card'
 }
 
 type CreatedOrder = Order & { estimatedMinutes: number }

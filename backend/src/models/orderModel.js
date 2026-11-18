@@ -25,6 +25,14 @@ const orderSchema = new mongoose.Schema(
             refundId: { type: String, default: null }
         },
         estimatedMinutes: { type: Number, required: true },
+        paymentMethod: {
+            type: String,
+            enum: ['card', 'cash']
+        },
+        paymentStatus: {
+            status: { type: String, enum: ['paid', 'unpaid'], default: 'unpaid' }
+        },
+        balanceCredited: { type: Boolean, default: false }
     },
     { timestamps: true }
 );

@@ -60,6 +60,12 @@ const PERIOD_LABELS: Record<Period, string> = {
 
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+const ACTION_LABELS: Record<string, string> = {
+  accepted: 'Start',
+  preparing: 'Done',
+  ready: 'Deliver',
+}
+
 async function api<T>(
   path: string,
   token: string | null,
@@ -157,10 +163,10 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     if (!authReady) return
     try {
       const token = await getTokenRef.current()
-      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/orders/restaurant?status=accepted,preparing', token)
+      const res = await api<{ count: number; orders: RunningOrder[] }>('/api/orders/restaurant?status=accepted,preparing,ready', token)
       setRunningOrders(res.orders)
     } catch (error) {
-      console.error('Erro ao carregar pedidos:', error)
+      console.error('Error loading orders:', error)
     } finally {
       setOrdersLoaded(true)
     }
@@ -275,13 +281,36 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     async (item: RunningOrder) => {
       try {
         await updateOrderStatus(item._id, 'ready')
-        setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
-        loadGraph()
+        setRunningOrders((prev) =>
+          prev.map((o) => (o._id === item._id ? { ...o, status: 'ready' } : o))
+        )
       } catch (error) {
         Alert.alert('Error', error instanceof Error ? error.message : 'Could not finish the order')
       }
     },
+    [updateOrderStatus]
+  )
+
+  const handleDeliverPress = useCallback(
+    async (item: RunningOrder) => {
+      try {
+        await updateOrderStatus(item._id, 'delivered')
+        setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
+        loadGraph()
+      } catch (error) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Could not deliver the order')
+      }
+    },
     [updateOrderStatus, loadGraph]
+  )
+
+  const handleActionPress = useCallback(
+    (item: RunningOrder) => {
+      if (item.status === 'accepted') return handleStartPress(item)
+      if (item.status === 'preparing') return handleDonePress(item)
+      return handleDeliverPress(item)
+    },
+    [handleStartPress, handleDonePress, handleDeliverPress]
   )
 
   const handleCancelPress = useCallback(
@@ -536,18 +565,20 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
                   <Text style={[styles.foodName, { fontFamily: 'Sen_400Regular', marginRight: 40 }]}>${item.price}</Text>
                   <TouchableOpacity
                     style={styles.doneTouchableOpacity}
-                    onPress={() => (item.status === 'accepted' ? handleStartPress(item) : handleDonePress(item))}
+                    onPress={() => handleActionPress(item)}
                   >
                     <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#fff' }}>
-                      {item.status === 'accepted' ? 'Start' : 'Done'}
+                      {ACTION_LABELS[item.status] ?? 'Deliver'}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.cancelTouchableOpacity}
-                    onPress={() => handleCancelPress(item)}
-                  >
-                    <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#FF3326' }}>Cancel</Text>
-                  </TouchableOpacity>
+                  {item.status !== 'ready' && (
+                    <TouchableOpacity
+                      style={styles.cancelTouchableOpacity}
+                      onPress={() => handleCancelPress(item)}
+                    >
+                      <Text style={{ fontFamily: 'Sen_400Regular', fontSize: 14, color: '#FF3326' }}>Cancel</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             </View>

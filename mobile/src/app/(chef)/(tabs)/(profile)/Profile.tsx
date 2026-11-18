@@ -10,8 +10,7 @@ type ProfileData = {
   ordersCount: number
 }
 
-const formatBalance = (cents: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
+const formatBalance = (value: number) => `R$ ${Number(value || 0).toFixed(2).replace('.', ',')}`
 
 const formatOrders = (count: number) => {
   if (count < 1000) return String(count)

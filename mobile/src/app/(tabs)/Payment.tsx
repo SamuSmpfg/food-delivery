@@ -13,6 +13,7 @@ import { useSavedCards } from '../../lib/cards'
 import useCreateOrder from '../../../hooks/useCreateOrder'
 
 type Method = 'cash' | 'visa' | 'mastercard' | 'paypal'
+type PaymentKind = 'cash' | 'card'
 
 const METHODS: { id: Method; label: string }[] = [
   { id: 'cash', label: 'Cash' },
@@ -127,7 +128,7 @@ const Payment = () => {
   const brandCards = savedCards.filter((card) => card.brand === method)
   const activeCard = brandCards.find((card) => card.id === selectedCardId) ?? brandCards[0]
 
-  const finish = async (label: string) => {
+  const finish = async (label: string, paymentMethod: PaymentKind) => {
     const paid = total
 
     if (items.some((item) => !item.restaurantId)) {
@@ -148,6 +149,7 @@ const Payment = () => {
       const [restaurantId, group] = entries[i]
       const created = await createOrder({
         restaurantId,
+        paymentMethod,
         items: group.map((item) => ({
           dishId: item.id,
           size: item.size || undefined,
@@ -173,7 +175,7 @@ const Payment = () => {
     setError('')
 
     try {
-      await finish('Cash')
+      await finish('Cash', 'cash')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -186,7 +188,7 @@ const Payment = () => {
     setError('')
 
     try {
-      await finish(CARD_TITLES[method] === 'Master Card' ? 'Mastercard' : 'Visa')
+      await finish(CARD_TITLES[method] === 'Master Card' ? 'Mastercard' : 'Visa', 'card')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -211,7 +213,7 @@ const Payment = () => {
       })
 
       if (result.status === 'COMPLETED') {
-        await finish('PayPal')
+        await finish('PayPal', 'card')
       } else {
         setError('The PayPal payment was not completed')
       }

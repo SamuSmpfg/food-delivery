@@ -48,7 +48,6 @@ type ApiOrder = {
 
 const ACTIVE_STATUSES: OrderStatus[] = ['pending', 'accepted', 'preparing', 'ready', 'delivering']
 
-// Quantos passos já foram concluídos para cada status (4 = tudo concluído).
 const STAGE_BY_STATUS: Record<OrderStatus, number> = {
   pending: 0,
   accepted: 1,
@@ -108,7 +107,6 @@ const TrackingOrder = () => {
     }
   }, [isLoaded, isSignedIn])
 
-  // Busca ao focar a tela e repete a cada 10 s enquanto ela estiver em foco.
   useFocusEffect(
     useCallback(() => {
       fetchOrders()
@@ -169,8 +167,6 @@ const TrackingOrder = () => {
     })
   ).current
 
-  // Pedido em andamento mais recente. Se não houver, mostra um pedido
-  // entregue/cancelado na última hora para o cliente ver o desfecho.
   const order = useMemo(() => {
     const active = orders.find((item) => ACTIVE_STATUSES.includes(item.status))
     if (active) return active
