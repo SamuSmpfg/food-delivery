@@ -74,7 +74,7 @@ const Cart = () => {
                   </TouchableOpacity>
                 )}
               </View>
-              <Text style={styles.itemPrice}>${item.unitPrice * item.quantity}</Text>
+              <Text style={styles.itemPrice}>${(item.unitPrice * item.quantity).toFixed(2)}</Text>
               <View style={styles.itemBottom}>
                 <Text style={styles.itemSize}>{item.size}</Text>
                 <View style={styles.stepper}>
@@ -131,7 +131,7 @@ const Cart = () => {
         <View style={[styles.sheetRow, styles.totalRow]}>
           <View style={styles.totalLeft}>
             <Text style={styles.sheetLabel}>TOTAL:</Text>
-            <Text style={styles.totalValue}>${total}</Text>
+            <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
           </View>
           <TouchableOpacity style={styles.breakdown}>
             <Text style={styles.breakdownText}>Breakdown</Text>

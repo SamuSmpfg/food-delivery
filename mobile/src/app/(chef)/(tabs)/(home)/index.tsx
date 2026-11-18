@@ -611,9 +611,12 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
               ) : (
                 <View style={styles.foodImgSheet} />
               )}
-              <View style={{ flexDirection: 'column', gap: 4, marginLeft: 16 }}>
+              <View style={{ flex: 1, flexDirection: 'column', gap: 4, marginLeft: 16 }}>
                 <Text style={styles.foodClass}>{item.foodType}</Text>
-                <Text style={styles.foodName}>{item.name}</Text>
+                <Text 
+                  style={styles.foodName} 
+                  numberOfLines={1}
+                  ellipsizeMode='tail'>{item.name}</Text>
                 <Text style={styles.foodId}>ID: {item.orderId}</Text>
 
                 <View style={styles.sheetButtons}>
@@ -719,20 +722,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff'
   },
   sheetContent: {
-    padding: 24
+    padding: 12
   },
   sheetOrder: {
     flexDirection: 'row',
     marginVertical: 16,
+    minHeight: '10%',
     alignItems: 'center',
-    maxWidth: '50%',
   },
-  foodImgSheet: {
-    height: 102,
-    width: 102,
-    borderRadius: 20,
-    backgroundColor: '#98A8B8',
-  },
+foodImgSheet: {
+  height: 102,
+  width: 102,
+  borderRadius: 20,
+  backgroundColor: '#98A8B8',
+  flexShrink: 0,
+},
   foodClass: {
     color: '#ED7A63',
     fontFamily: 'Sen_400Regular',
@@ -767,7 +771,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   acceptTouchableOpacity: {
     backgroundColor: '#FF7622',
@@ -776,7 +780,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   cancelTouchableOpacity: {
     borderColor: '#FF3326',

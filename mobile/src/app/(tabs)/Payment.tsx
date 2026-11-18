@@ -68,8 +68,7 @@ const MethodLogo = ({ method }: { method: Method }) => {
   }
   return (
     <Text style={styles.paypalLogo}>
-      <Text style={styles.paypalDark}>Pay</Text>
-      <Text style={styles.paypalLight}>Pal</Text>
+      <FontAwesome name="paypal" size={24} color="#2790C3" />
     </Text>
   )
 }
@@ -95,7 +94,7 @@ const PanelIcon = ({ method }: { method: Method }) => {
     return <MaterialCommunityIcons name="cash-multiple" size={64} color="#FF7622" />
   }
   if (method === 'paypal') {
-    return <FontAwesome name="paypal" size={56} color="#179BD7" />
+    return <FontAwesome name="paypal" size={56} color="#2790C3" />
   }
   if (method === 'visa') {
     return <Text style={styles.panelVisaLogo}>VISA</Text>

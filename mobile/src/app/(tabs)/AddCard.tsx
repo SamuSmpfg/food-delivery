@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
 import Feather from '@expo/vector-icons/Feather'
 import { useCart } from '../../context/CartContext'
-import { addSavedCard, CardBrand } from '../../lib/cards'
+import { addSavedCard, findSavedCard, CardBrand } from '../../lib/cards'
 import useCreateOrder from '../../../hooks/useCreateOrder'
 
 const formatCardNumber = (value: string) => {
@@ -35,40 +35,50 @@ const AddCard = () => {
   const cardBrand: CardBrand = brand === 'visa' ? 'visa' : 'mastercard'
   const brandLabel = cardBrand === 'visa' ? 'Visa' : 'Mastercard'
 
-  const digitsOnly = number.replace(/\D/g, '')
-  const canSubmit = holder.trim().length > 0 && digitsOnly.length > 0 && !loading && total > 0
+const digitsOnly = number.replace(/\D/g, '')
+const isDuplicate = digitsOnly.length >= 4 && !!findSavedCard(cardBrand, digitsOnly.slice(-4))
+const canSubmit =
+  holder.trim().length > 0 && digitsOnly.length > 0 && !loading && total > 0 && !isDuplicate
 
-  const handlePay = async () => {
-    setLoading(true)
-    setError('')
+const handlePay = async () => {
+  setLoading(true)
+  setError('')
 
-    try {
-      const paid = total
-      const restaurantName = items.find((item) => item.restaurant)?.restaurant || 'Restaurant'
+  try {
+    if (findSavedCard(cardBrand, digitsOnly.slice(-4))) {
+  throw new Error('Este cartão já foi adicionado')
+}
+    const paid = total
+    const restaurantId = items.find((item) => item.restaurantId)?.restaurantId
+    if (!restaurantId) throw new Error('Restaurante não encontrado no carrinho')
 
-      addSavedCard({
-        brand: cardBrand,
-        holder: holder.trim(),
-        last4: digitsOnly.slice(-4)
-      })
+    const created = await createOrder({
+      restaurantId,
+      paymentMethod: 'card',
+      items: items.map((item) => ({
+        dishId: item.id,
+        size: item.size || undefined,
+        quantity: item.quantity,
+      })),
+    })
 
-      await createOrder({
-        restaurantName,
-        total: Math.round(paid * 100) / 100,
-        itemsCount: count
-      })
+    addSavedCard({
+      brand: cardBrand,
+      holder: holder.trim(),
+      last4: digitsOnly.slice(-4),
+    })
 
-      placeOrder()
-      router.replace({
-        pathname: '/(tabs)/PaymentSuccess',
-        params: { method: brandLabel, total: String(paid) }
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
+    placeOrder(created.estimatedMinutes)
+    router.replace({
+      pathname: '/(tabs)/PaymentSuccess',
+      params: { method: brandLabel, total: String(paid) },
+    })
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Something went wrong')
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <KeyboardAvoidingView
@@ -145,6 +155,7 @@ const AddCard = () => {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
+        {isDuplicate && <Text style={styles.errorText}>Este cartão já foi adicionado</Text>}
         {error !== '' && <Text style={styles.errorText}>{error}</Text>}
 
         <TouchableOpacity

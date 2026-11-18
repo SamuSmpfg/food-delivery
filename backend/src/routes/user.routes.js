@@ -3,6 +3,7 @@ import { clerkClient, getAuth } from '@clerk/express'
 import User from '../models/userModel.js'
 import Restaurant from '../models/restuarantModel.js'
 import { asyncHandler, requireUser } from '../middleware/auth.js'
+import Order from '../models/orderModel.js'
 
 const router = Router()
 
@@ -49,17 +50,19 @@ router.get('/chef-profile', requireUser, asyncHandler(async (req, res) => {
   if (req.user.role !== 'chef') {
     return res.status(403).json({ message: 'Forbidden' })
   }
-  
+
   const restaurants = await Restaurant.find({ ownerId: req.user._id }).select('availableBalance')
   const balance =
     Math.round(
       restaurants.reduce((sum, restaurant) => sum + (restaurant.availableBalance ?? 0), 0) * 100
     ) / 100
 
-  res.json({
-    balance,
-    ordersCount: req.user.ordersCount ?? 0
+  const ordersCount = await Order.countDocuments({
+    restaurantId: { $in: restaurants.map((restaurant) => restaurant._id) },
+    status: { $nin: ['pending', 'cancelled'] }
   })
+
+  res.json({ balance, ordersCount })
 }))
 
 router.put('/account', requireUser, asyncHandler(async (req, res) => {
