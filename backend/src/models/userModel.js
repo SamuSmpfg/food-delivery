@@ -2,6 +2,12 @@ import mongoose from 'mongoose';
 import { addressSchema } from './addressModel.js';
 import { paymentMethodSchema } from './paymentMethod.js';
 
+const savedCardSchema = new mongoose.Schema({
+    brand: { type: String, enum: ['visa', 'mastercard'], required: true },
+    holder: { type: String, required: true, trim: true },
+    last4: { type: String, required: true, match: /^\d{4}$/ }
+});
+
 const userSchema = new mongoose.Schema(
     {
         clerkId: { type: String, required: true, trim: true, unique: true },
@@ -18,10 +24,10 @@ const userSchema = new mongoose.Schema(
         stripeCustomerId: { type: String, default: null },
         address: addressSchema,
         paymentMethods: [paymentMethodSchema],
+        savedCards: { type: [savedCardSchema], default: [] },
         balance: { type: Number, default: 0, min: 0 },
-        ordersCount: { type: Number, default: 0, min: 0 },
+        ordersCount: { type: Number, default: 0, min: 0 }
     },
-    { timestamps: true }
+    { timestamps: true },
 );
-
 export default mongoose.model('User', userSchema);

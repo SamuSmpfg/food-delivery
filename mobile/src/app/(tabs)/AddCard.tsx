@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
 import Feather from '@expo/vector-icons/Feather'
 import { useCart } from '../../context/CartContext'
-import { addSavedCard, findSavedCard, CardBrand } from '../../lib/cards'
+import { useSavedCards, CardBrand } from '../../lib/cards'
 import useCreateOrder from '../../../hooks/useCreateOrder'
 
 const formatCardNumber = (value: string) => {
@@ -22,8 +22,9 @@ const AddCard = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { brand } = useLocalSearchParams<{ brand: string }>()
-  const { items, count, total, placeOrder } = useCart()
+const { items, total, placeOrder } = useCart()
   const { createOrder } = useCreateOrder()
+  const { findCard, addCard } = useSavedCards()
 
   const [holder, setHolder] = useState('')
   const [number, setNumber] = useState('')
@@ -36,7 +37,8 @@ const AddCard = () => {
   const brandLabel = cardBrand === 'visa' ? 'Visa' : 'Mastercard'
 
 const digitsOnly = number.replace(/\D/g, '')
-const isDuplicate = digitsOnly.length >= 4 && !!findSavedCard(cardBrand, digitsOnly.slice(-4))
+const last4 = digitsOnly.slice(-4)
+const isDuplicate = digitsOnly.length >= 4 && !!findCard(cardBrand, last4)
 const canSubmit =
   holder.trim().length > 0 && digitsOnly.length > 0 && !loading && total > 0 && !isDuplicate
 
@@ -45,12 +47,15 @@ const handlePay = async () => {
   setError('')
 
   try {
-    if (findSavedCard(cardBrand, digitsOnly.slice(-4))) {
-  throw new Error('Este cartão já foi adicionado')
-}
+    if (findCard(cardBrand, last4)) {
+      throw new Error('This card has already been added')
+    }
+
     const paid = total
     const restaurantId = items.find((item) => item.restaurantId)?.restaurantId
-    if (!restaurantId) throw new Error('Restaurante não encontrado no carrinho')
+    if (!restaurantId) {
+      throw new Error('Restaurant not found in the cart')
+    }
 
     const created = await createOrder({
       restaurantId,
@@ -62,11 +67,11 @@ const handlePay = async () => {
       })),
     })
 
-    addSavedCard({
-      brand: cardBrand,
-      holder: holder.trim(),
-      last4: digitsOnly.slice(-4),
-    })
+    try {
+      await addCard({ brand: cardBrand, holder: holder.trim(), last4 })
+    } catch (err) {
+  console.warn('Could not save the card:', err)
+}
 
     placeOrder(created.estimatedMinutes)
     router.replace({
@@ -79,7 +84,6 @@ const handlePay = async () => {
     setLoading(false)
   }
 }
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -155,7 +159,7 @@ const handlePay = async () => {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
-        {isDuplicate && <Text style={styles.errorText}>Este cartão já foi adicionado</Text>}
+        {isDuplicate && <Text style={styles.errorText}>This card has already been added</Text>}
         {error !== '' && <Text style={styles.errorText}>{error}</Text>}
 
         <TouchableOpacity

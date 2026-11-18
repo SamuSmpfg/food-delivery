@@ -113,7 +113,7 @@ const Payment = () => {
   const insets = useSafeAreaInsets()
   const { items, total, placeOrder } = useCart()
   const { createOrder } = useCreateOrder()
-  const savedCards = useSavedCards()
+  const { cards: savedCards, loading: cardsLoading } = useSavedCards()
 
   const [method, setMethod] = useState<Method>('cash')
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
@@ -124,8 +124,8 @@ const Payment = () => {
   const isCard = method === 'visa' || method === 'mastercard'
   const panel = PANELS[method]
 
-  const brandCards = savedCards.filter((card) => card.brand === method)
-  const activeCard = brandCards.find((card) => card.id === selectedCardId) ?? brandCards[0]
+const brandCards = savedCards.filter((card) => card.brand === method)
+const activeCard = brandCards.find((card) => card._id === selectedCardId) ?? brandCards[0]
 
   const finish = async (label: string, paymentMethod: PaymentKind) => {
     const paid = total
@@ -309,16 +309,16 @@ const Payment = () => {
 
             {dropdownOpen &&
               brandCards
-                .filter((card) => card.id !== activeCard.id)
-                .map((card) => (
-                  <TouchableOpacity
-                    key={card.id}
-                    style={styles.savedCardOption}
-                    onPress={() => {
-                      setSelectedCardId(card.id)
-                      setDropdownOpen(false)
+              .filter((card) => card._id !== activeCard._id)
+              .map((card) => (
+                <TouchableOpacity
+                  key={card._id}
+                  style={styles.savedCardOption}
+                  onPress={() => {
+                  setSelectedCardId(card._id)
+                  setDropdownOpen(false)
                     }}
-                  >
+                      >
                     <MiniBrand brand={card.brand} />
                     <Text style={styles.savedCardNumber}>
                       {'**************'} {card.last4}

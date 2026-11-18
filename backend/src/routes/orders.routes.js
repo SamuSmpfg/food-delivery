@@ -43,13 +43,11 @@ const requireUser = async (req, res, next) => {
   try {
     const { userId: clerkId } = getAuth(req)
     if (!clerkId) {
-      console.log('ORDERS 401: request without an authenticated user in Clerk', req.method, req.originalUrl)
       return res.status(401).json({ message: 'Unauthorized' })
     }
 
     const user = await findOrCreateUser(clerkId)
     if (!user) {
-      console.log('ORDERS 404: Clerk user without an email', clerkId)
       return res.status(404).json({ message: 'User not found (the account has no email address)' })
     }
 
@@ -62,7 +60,6 @@ const requireUser = async (req, res, next) => {
 }
 
 router.use((req, res, next) => {
-  console.log('ORDERS ROUTER', req.method, req.originalUrl, 'auth header:', !!req.headers.authorization)
   next()
 })
 
@@ -153,7 +150,6 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    console.log('POST /api/orders received', JSON.stringify(req.body))
     const { restaurantId, items, deliveryAddress } = req.body
     const paymentIntentId =
       typeof req.body.paymentIntentId === 'string' && req.body.paymentIntentId.trim()

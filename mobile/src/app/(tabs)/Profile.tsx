@@ -150,7 +150,7 @@ const handleSignOut = async () => {
                     </View>
                 </TouchableOpacity>
 
-                 <TouchableOpacity onPress={() => router.push('/(tabs)/Payment')}>
+                 <TouchableOpacity>
                     <View style={styles.infosTouchableOpacity}>
                         <View style={styles.icons}>
                             <Feather name="credit-card" size={24} color="#369BFF" />

@@ -10,6 +10,7 @@ import chefApplicationsRoutes from './routes/chefApplications.routes.js'
 import chefOrders from './routes/chefOrders.routes.js';
 import graphRoutes from './routes/graph.routes.js'
 import routes from './routes/index.routes.js'
+import cardsRoute from './routes/card.routes.js'
 
 const app = express()
 
@@ -24,6 +25,7 @@ app.use('/api/admin', chefInvitationsRoutes)
 app.use('/api/chef-applications', chefApplicationsRoutes)
 app.use('/api/chef/orders', chefOrders);
 app.use('/api/graph', graphRoutes)
+app.use('/api/cards', cardsRoute)
 app.use('/api', routes)
 
 app.use((req, res) => {
