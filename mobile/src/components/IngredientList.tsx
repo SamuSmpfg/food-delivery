@@ -34,7 +34,7 @@ const IngredientList = ({ selectedIds, onToggle }: Props) => {
                     onToggle({
                       id: item.id,
                       name: item.name,
-                      kind: item.category.toLowerCase(),
+                      kind: item.category,
                     })
                   }
                   style={[styles.chip, selected && styles.chipSelected]}

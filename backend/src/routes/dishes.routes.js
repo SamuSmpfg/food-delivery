@@ -7,7 +7,7 @@ import { pick } from '../utils/pick.js';
 const router = Router();
 
 const editable = [
-    'name', 'description', 'image', 'classification', 'deliveryMode',
+    'name', 'description', 'image', 'category', 'classification', 'deliveryMode',
     'sizes', 'ingredients', 'avgPrepMinutes', 'available'
 ];
 
@@ -22,6 +22,15 @@ router.get('/', asyncHandler(async (req, res) => {
     res.json(dishes);
 }));
 
+router.get('/mine', requireUser, requireRole('chef'), asyncHandler(async (req, res) => {
+    const { classification } = req.query;
+    const restaurants = await Restaurant.find({ ownerId: req.user._id }).select('_id');
+    const filter = { restaurantId: { $in: restaurants.map((r) => r._id) } };
+    if (classification) filter.classification = classification;
+    const dishes = await Dish.find(filter).sort({ createdAt: -1 });
+    res.json(dishes);
+}));
+
 router.get('/popular', requireUser, requireRole('chef'), asyncHandler(async (req, res) => {
     const restaurants = await Restaurant.find({ ownerId: req.user._id }).select('_id');
     const dishes = await Dish.find({ restaurantId: { $in: restaurants.map((r) => r._id) } })
@@ -31,7 +40,7 @@ router.get('/popular', requireUser, requireRole('chef'), asyncHandler(async (req
 }));
 
 router.get('/:id', validateId(), asyncHandler(async (req, res) => {
-    const dish = await Dish.findById(req.params.id).populate('restaurantId', 'name image rating deliveryFee isOpen');
+    const dish = await Dish.findById(req.params.id).populate('restaurantId', 'name image address rating deliveryFee isOpen');
     if (!dish) return res.status(404).json({ message: 'Dish not found' });
     res.json(dish);
 }));

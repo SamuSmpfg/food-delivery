@@ -11,6 +11,7 @@ import { notifyCustomerOfStatus } from '../utils/orderNotifications.js'
 const router = Router()
 
 const REQUIRE_PAYMENT_INTENT = process.env.REQUIRE_PAYMENT_INTENT === 'true'
+const DEFAULT_ESTIMATED_MINUTES = 30
 
 const findOrCreateUser = async (clerkId) => {
   const existing = await User.findOne({ clerkId })
@@ -236,6 +237,13 @@ router.post('/', async (req, res) => {
     const deliveryFee = restaurant.deliveryFee ?? 0
     const total = round(subTotal + deliveryFee)
 
+    const deliveryMinutes = Number(restaurant.averageDeliveryTime) || 0
+    const prepMinutes = Math.max(
+      0,
+      ...orderItems.map((item) => Number(dishById.get(String(item.dishId))?.avgPrepMinutes) || 0)
+    )
+    const estimatedMinutes = deliveryMinutes + prepMinutes || DEFAULT_ESTIMATED_MINUTES
+
     let payment = null
     if (paymentIntentId) {
       const check = await verifyPaymentIntent(paymentIntentId, total)
@@ -253,7 +261,7 @@ router.post('/', async (req, res) => {
       subTotal,
       deliveryFee,
       total,
-      estimatedMinutes: restaurant.averageDeliveryTime,
+      estimatedMinutes,
       paymentMethod,
       ...(payment ? { payment } : {}),
       ...(deliveryAddress ? { deliveryAddress } : {})
@@ -479,8 +487,8 @@ router.patch('/:id/status', async (req, res) => {
     }
 
     if (nextStatus === 'accepted' && updated.paymentMethod === 'card') {
-  await creditRestaurantBalance(updated)
-}
+      await creditRestaurantBalance(updated)
+    }
 
     await notifyCustomerOfStatus(updated, req.user._id)
 

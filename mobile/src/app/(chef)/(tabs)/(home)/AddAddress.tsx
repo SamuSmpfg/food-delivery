@@ -212,7 +212,7 @@ const AddAddress = () => {
                 style={styles.input}
                 value={street}
                 onChangeText={setStreet}
-                placeholder="Rua"
+                placeholder="Street"
                 placeholderTextColor="#A0A5BA"
               />
             </View>

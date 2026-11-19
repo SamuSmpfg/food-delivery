@@ -9,10 +9,13 @@ import { useAuth } from '@clerk/clerk-expo'
 import { MaterialIcons } from '@expo/vector-icons'
 import ImageUploadList from '@/components/ImageUploadList'
 import IngredientList from '@/components/IngredientList'
+import { uploadImage } from '../../../utils/UploadImage'
 
 type Props = {}
 
-type DeliveryOption = 'pickup' | 'delivery'
+type DeliveryMode = 'Pickup' | 'Delivery' | 'Dine-in'
+
+type Classification = 'Breakfast' | 'Lunch' | 'Dinner'
 
 type SelectedIngredient = { id: string; name: string; kind: string }
 
@@ -23,6 +26,14 @@ type CheckItemProps = {
 }
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL
+
+const CLASSIFICATIONS: Classification[] = ['Breakfast', 'Lunch', 'Dinner']
+
+const DELIVERY_MODES: { label: string; value: DeliveryMode }[] = [
+  { label: 'Pick up', value: 'Pickup' },
+  { label: 'Delivery', value: 'Delivery' },
+  { label: 'Dine-in', value: 'Dine-in' },
+]
 
 const CheckItem = ({ label, checked, onPress }: CheckItemProps) => (
   <TouchableOpacity style={styles.checkItem} onPress={onPress} activeOpacity={0.7}>
@@ -40,7 +51,8 @@ const AddNew = (props: Props) => {
   const [itemName, setItemName] = useState('')
   const [price, setPrice] = useState('')
   const [details, setDetails] = useState('')
-  const [option, setOption] = useState<DeliveryOption>('pickup')
+  const [option, setOption] = useState<DeliveryMode>('Pickup')
+  const [classification, setClassification] = useState<Classification>('Breakfast')
   const [selectedIngredients, setSelectedIngredients] = useState<SelectedIngredient[]>([])
   const [images, setImages] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
@@ -58,7 +70,8 @@ const AddNew = (props: Props) => {
     setItemName('')
     setPrice('')
     setDetails('')
-    setOption('pickup')
+    setOption('Pickup')
+    setClassification('Breakfast')
     setSelectedIngredients([])
     setImages([])
     setResetKey((prev) => prev + 1)
@@ -86,10 +99,30 @@ const AddNew = (props: Props) => {
       Alert.alert('Preço inválido', 'Informe um preço válido.')
       return
     }
+    if (!details.trim()) {
+      Alert.alert('Campo obrigatório', 'Escreva os detalhes do prato.')
+      return
+    }
+    if (images.length === 0) {
+      Alert.alert('Foto obrigatória', 'Adicione pelo menos uma foto.')
+      return
+    }
 
     try {
       setSaving(true)
       const token = await getToken()
+      console.log('TOKEN:' + token)
+
+      const mineRes = await fetch(`${API_URL}/api/restaurants/mine`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!mineRes.ok) throw new Error('Não foi possível buscar seu restaurante.')
+
+      const restaurants = await mineRes.json().catch(() => [])
+      const restaurantId = Array.isArray(restaurants) ? restaurants[0]?._id : undefined
+      if (!restaurantId) throw new Error('Você ainda não tem um restaurante cadastrado.')
+
+      const imageUrl = await uploadImage(images[0])
 
       const res = await fetch(`${API_URL}/api/dishes`, {
         method: 'POST',
@@ -98,10 +131,13 @@ const AddNew = (props: Props) => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          restaurantId,
           name: itemName.trim(),
           description: details.trim(),
-          image: images[0] ?? '',
-          deliveryMode: option === 'pickup' ? 'Pickup' : 'Delivery',
+          image: imageUrl,
+          category: [classification],
+          classification,
+          deliveryMode: option,
           sizes: [{ label: 'Único', price: priceNumber }],
           ingredients: selectedIngredients.map(({ name, kind }) => ({ name, kind })),
         }),
@@ -174,13 +210,37 @@ const AddNew = (props: Props) => {
                   value={price}
                   onChangeText={setPrice}
                 />
-                <View style={styles.checkboxWrapper}>
-                  <CheckItem label="Pick up" checked={option === 'pickup'} onPress={() => setOption('pickup')} />
-                  <CheckItem label="Delivery" checked={option === 'delivery'} onPress={() => setOption('delivery')} />
-                </View>
               </View>
             </View>
           </TouchableWithoutFeedback>
+
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.labels}>MEAL TYPE</Text>
+            <View style={styles.optionsRow}>
+              {CLASSIFICATIONS.map((c) => (
+                <CheckItem
+                  key={c}
+                  label={c}
+                  checked={classification === c}
+                  onPress={() => setClassification(c)}
+                />
+              ))}
+            </View>
+          </View>
+
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.labels}>DELIVERY MODE</Text>
+            <View style={styles.optionsRow}>
+              {DELIVERY_MODES.map((m) => (
+                <CheckItem
+                  key={m.value}
+                  label={m.label}
+                  checked={option === m.value}
+                  onPress={() => setOption(m.value)}
+                />
+              ))}
+            </View>
+          </View>
 
           <View style={{ marginTop: 16 }}>
             <Text style={styles.labels}>INGREDIENTS</Text>
@@ -283,11 +343,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Sen_400Regular',
     fontSize: 14,
   },
-  checkboxWrapper: {
+  optionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    marginLeft: 24,
-    gap: 20,
+    columnGap: 20,
+    rowGap: 12,
+    marginVertical: 16,
   },
   checkItem: {
     flexDirection: 'row',
