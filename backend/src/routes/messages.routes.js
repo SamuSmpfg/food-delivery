@@ -17,7 +17,6 @@ const getParticipants = async (orderId) => {
 };
 
 router.get('/conversations', asyncHandler(async (req, res) => {
-    console.log(req.user._id)
 
     const userId = new mongoose.Types.ObjectId(req.user._id);
     const usersCollection = mongoose.model('User').collection.name;

@@ -66,9 +66,8 @@ const LineChart = ({ chartHeight, chartMargin, chartWidth, data, selectedValue }
   const stepX = x.step()
 
   const max = Math.max(...data.map(val => val.value));
-  const min = Math.min(...data.map(val => val.value));
 
-  const yDomain = [min, max];
+  const yDomain = [0, Math.max(max, 1)];
   const yRange = [chartHeight, 48];
   const y = scaleLinear().domain(yDomain).range(yRange);
 
@@ -88,6 +87,7 @@ const LineChart = ({ chartHeight, chartMargin, chartWidth, data, selectedValue }
   }
 
   const path = parse(linePath.toSVGString());
+  const labelEvery = data.length > 8 ? 4 : 1;
 
   const handleGestureEvent = (e: PanGestureHandlerEventPayload) => {
     'worklet'
@@ -138,14 +138,16 @@ const LineChart = ({ chartHeight, chartMargin, chartWidth, data, selectedValue }
           curvedLine={curvedLine}
           animationGradient={animationGradient}
         />
-        {data.map((dataPoint: DataType, index) => (
+        {data.map((dataPoint: DataType, index) =>
+          index % labelEvery === 0 ? (
           <XAxisText
-            x={x(dataPoint.label)! - 11}
-            y={chartHeight}
-            text={dataPoint.label}
-            key={index}
-          />
-        ))}
+          x={x(dataPoint.label)! - 11}
+          y={chartHeight}
+          text={dataPoint.label}
+          key={index}
+            />
+            ) : null
+              )}
         {showCursor && <Cursor cx={cx} cy={cy} chartHeight={chartHeight} />}
         {showCursor && (
           <CursorTooltip cx={cx} cy={cy} value={tooltipValue} canvasWidth={chartWidth + 20} />

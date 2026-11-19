@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "DFood",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Dfood.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {

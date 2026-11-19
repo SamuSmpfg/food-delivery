@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native'
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
@@ -26,29 +26,44 @@ const Profile = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  const loadProfile = useCallback(async () => {
-    try {
-      setError(false)
-      const token = await getToken()
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/chef-profile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!response.ok) throw new Error(`Failed to fetch profile: ${response.status}`)
-      const json = await response.json()
-      setData({ balance: json.balance, ordersCount: json.ordersCount })
-    } catch (err) {
-      console.error('Error loading profile:', err)
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [getToken])
+const getTokenRef = useRef(getToken)
+getTokenRef.current = getToken
 
-  useFocusEffect(
-    useCallback(() => {
-      loadProfile()
-    }, [loadProfile])
-  )
+const loadProfile = useCallback(async (signal: AbortSignal) => {
+  try {
+    setError(false)
+    const token = await getTokenRef.current()
+    if (signal.aborted) return
+    if (!token) throw new Error('No auth token')
+
+    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/chef-profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal,
+    })
+    if (!response.ok) throw new Error(`Failed to fetch profile: ${response.status}`)
+
+    const json = await response.json()
+    if (signal.aborted) return
+    setData({
+      balance: Number(json.balance) || 0,
+      ordersCount: Number(json.ordersCount) || 0,
+    })
+  } catch (err) {
+    if (signal.aborted) return
+    console.error('Error loading profile:', err)
+    setError(true)
+  } finally {
+    if (!signal.aborted) setLoading(false)
+  }
+}, [])
+
+useFocusEffect(
+  useCallback(() => {
+    const controller = new AbortController()
+    loadProfile(controller.signal)
+    return () => controller.abort()
+  }, [loadProfile])
+)
 
   const handleSignOut = async () => {
         Alert.alert('Sign Out', `Are you sure you want to Sign Out?`, [
@@ -68,8 +83,8 @@ const Profile = () => {
         ])
     };
 
-  const balanceLabel = loading ? '' : error || !data ? '--' : formatBalance(data.balance)
-  const ordersLabel = loading ? '' : error || !data ? '--' : formatOrders(data.ordersCount)
+  const balanceLabel = loading ? '' : !data ? '--' : formatBalance(data.balance)
+  const ordersLabel  = loading ? '' : !data ? '--' : formatOrders(data.ordersCount)
 
   return (
     <>

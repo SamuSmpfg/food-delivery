@@ -1,7 +1,6 @@
 import { Canvas, SkFont, Text } from '@shopify/react-native-skia'
 import { useWindowDimensions } from 'react-native'
 import { SharedValue, useDerivedValue } from 'react-native-reanimated'
-import { StyleSheet } from 'react-native'
 
 type Props = {
   selectedValue: SharedValue<number>

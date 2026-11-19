@@ -196,28 +196,32 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
     }
   }, [authReady])
 
-  const loadGraph = useCallback(async () => {
-    if (!authReady) return
-    const requestId = ++graphRequestRef.current
+const loadGraph = useCallback(async () => {
+  if (!authReady) return
+  const requestId = ++graphRequestRef.current
 
-    try {
-      setGraphError(null)
+  try {
+    setGraphError(null)
 
-      const token = await getTokenRef.current()
-      const res = await api<GraphResponse>(`/api/graph?period=${period}`, token)
+    const token = await getTokenRef.current()
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const res = await api<GraphResponse>(
+      `/api/graph?period=${period}&tz=${encodeURIComponent(tz)}`,
+      token
+    )
 
-      if (requestId !== graphRequestRef.current) return
+    if (requestId !== graphRequestRef.current) return
 
-      setGraph(res)
-      selectedValue.value = res.totalRevenue
-    } catch (error) {
-      if (requestId !== graphRequestRef.current) return
+    setGraph(res)
+    selectedValue.value = res.totalRevenue
+  } catch (error) {
+    if (requestId !== graphRequestRef.current) return
 
-      console.error('Error loading chart:', error)
-      setGraph(null)
-      setGraphError(error instanceof Error ? error.message : 'Error loading chart')
-    }
-  }, [period, selectedValue, authReady])
+    console.error('Error loading chart:', error)
+    setGraph(null)
+    setGraphError(error instanceof Error ? error.message : 'Error loading chart')
+  }
+}, [period, selectedValue, authReady])
 
   useFocusEffect(
     useCallback(() => {
@@ -327,6 +331,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
               try {
                 await updateOrderStatus(item._id, 'cancelled')
                 setRunningOrders((prev) => prev.filter((o) => o._id !== item._id))
+                loadGraph()
                 onCancel?.(item.orderId)
               } catch (error) {
                 Alert.alert('Error', error instanceof Error ? error.message : 'Could not cancel the order')
@@ -337,7 +342,7 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
         { cancelable: true }
       )
     },
-    [onCancel, updateOrderStatus]
+    [onCancel, updateOrderStatus, loadGraph]
   )
 
   const handleAcceptRequest = useCallback(
@@ -346,12 +351,13 @@ export default function ChefHome({ onCancel }: ChefHomeProps) {
         await updateOrderStatus(item._id, 'accepted')
 
         setOrderRequests((prev) => prev.filter((o) => o._id !== item._id))
+        loadGraph()
         setRunningOrders((prev) => [{ ...item, status: 'accepted' }, ...prev])
       } catch (error) {
         Alert.alert('Error', error instanceof Error ? error.message : 'Could not accept the order')
       }
     },
-    [updateOrderStatus]
+    [updateOrderStatus, loadGraph]
   )
 
   const handleDeclineRequest = useCallback(
