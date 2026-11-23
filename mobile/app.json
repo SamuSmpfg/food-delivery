@@ -33,6 +33,10 @@
           "imageWidth": 76
         }
       ],
+      ["expo-location", {
+         "locationWhenInUsePermission": "We use your location to automatically fill in the address." 
+         }
+        ],
       "expo-secure-store",
       "expo-font",
       [

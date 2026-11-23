@@ -2,9 +2,16 @@ import { Redirect, Stack } from 'expo-router'
 import { StripeProvider } from '@stripe/stripe-react-native'
 import { CartProvider } from '../../context/CartContext'
 import { useRole } from '../../../hooks/useRole'
+import { useAutoSelectAddress } from '@/lib/useAutoSelectAddress'
+
+export const unstable_settings = {
+  initialRouteName: 'HomeScreen'
+}
 
 const TabsLayout = () => {
   const { role, isLoaded } = useRole()
+
+  useAutoSelectAddress(isLoaded && role !== 'chef')
 
   if (!isLoaded) return null
   if (role === 'chef') return <Redirect href="/(chef)/(tabs)/(home)" />
@@ -13,7 +20,6 @@ const TabsLayout = () => {
     <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}>
       <CartProvider>
         <Stack
-          initialRouteName="HomeScreen"
           screenOptions={{
             headerShown: false,
             animation: 'slide_from_right'

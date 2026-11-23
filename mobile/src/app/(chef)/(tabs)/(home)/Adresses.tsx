@@ -26,6 +26,11 @@ const Adresses = () => {
   }
 
   const confirmDelete = (item: Address) => {
+    if (addresses.length <= 1) {
+      Alert.alert('You must have at least one saved address.')
+      return
+    }
+
     Alert.alert('Delete address', `Do you want to delete the address? "${item.label}"?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => removeAddress(item.id) },

@@ -9,6 +9,9 @@ import { useRouter, useNavigation, useLocalSearchParams } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6'
 import AntDesign from '@expo/vector-icons/AntDesign'
+import { useAddresses } from '@/lib/addressStore'
+import { useSelectedAddressId } from '@/lib/selectedAddressStore'
+import { useAccountAddress } from '../../../../../hooks/useAccountAddress'
 
 type Props = {}
 
@@ -29,17 +32,9 @@ type Food = {
   ingredients: Ingredient[]
 }
 
-type AddressDto = {
-  street?: string
-  number?: string
-  apartment?: string
-  city?: string
-  state?: string
-}
-
 type DishDto = {
   _id: string
-  restaurantId?: { address?: AddressDto } | string
+  restaurantId?: { address?: string } | string
   name: string
   description: string
   image: string
@@ -91,17 +86,10 @@ const PLACEHOLDER_FOOD: Food = {
 const PLACEHOLDER_RATING = '4.9'
 const PLACEHOLDER_REVIEWS = 10
 
-const formatAddress = (a?: AddressDto) => {
-  if (!a) return ''
-  const line1 = [a.street, a.number].filter(Boolean).join(', ')
-  const line2 = [a.city, a.state].filter(Boolean).join(' - ')
-  return [line1, line2].filter(Boolean).join(' · ')
-}
-
 const toFood = (d: DishDto): Food => ({
   name: d.name ?? '',
   price: String(d.sizes?.[0]?.price ?? ''),
-  address: typeof d.restaurantId === 'object' ? formatAddress(d.restaurantId?.address) : '',
+  address: typeof d.restaurantId === 'object' ? d.restaurantId?.address ?? '' : '',
   description: d.description ?? '',
   classification: d.classification ?? CLASSIFICATIONS[0],
   deliveryMode: d.deliveryMode ?? DELIVERY_MODES[0],
@@ -150,6 +138,18 @@ const ChefFoodDetails = (props: Props) => {
   const navigation = useNavigation<any>()
   const { getToken } = useAuth()
   const { id: dishId } = useLocalSearchParams<{ id: string }>()
+
+  const addresses = useAddresses()
+  const selectedAddressId = useSelectedAddressId()
+  const { address: accountAddress, loading: addressLoading } = useAccountAddress()
+
+  const selectedAddress = addresses.find((item) => item.id === selectedAddressId)
+  const selectedAddressText = selectedAddress
+    ? `${selectedAddress.address}${selectedAddress.apartment ? ` - Apt ${selectedAddress.apartment}` : ''}`
+    : null
+
+  const displayAddress =
+    selectedAddressText ?? (addressLoading ? 'Loading...' : accountAddress || 'Add an address')
 
   const listRef = useRef<FlatList<Ingredient>>(null)
 
@@ -408,11 +408,15 @@ const ChefFoodDetails = (props: Props) => {
 
         <View style={{ flexDirection: 'row', marginTop: 8, alignItems: 'center' }}>
           <FontAwesome6 name="location-dot" size={16} color="#AFAFAF" />
-          <Text style={[styles.addressAndReviews, { flex: 1 }]} numberOfLines={2}>
-            {data.address || PLACEHOLDER_FOOD.address}
+          <Text
+            style={[styles.addressAndReviews, { flexShrink: 1 }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {displayAddress}
           </Text>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
             <AntDesign name="star" size={24} color="#FB6D3A" />
             <Text style={styles.rating}>
               {dish ? (dish.rating ? dish.rating.toFixed(1) : '-') : PLACEHOLDER_RATING}

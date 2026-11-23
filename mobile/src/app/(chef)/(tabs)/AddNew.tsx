@@ -111,7 +111,6 @@ const AddNew = (props: Props) => {
     try {
       setSaving(true)
       const token = await getToken()
-      console.log('TOKEN:' + token)
 
       const mineRes = await fetch(`${API_URL}/api/restaurants/mine`, {
         headers: { Authorization: `Bearer ${token}` },
