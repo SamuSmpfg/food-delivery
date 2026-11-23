@@ -7,7 +7,7 @@ import { pick } from '../utils/pick.js';
 const router = Router();
 
 const editable = [
-    'name', 'description', 'image', 'category', 'classification', 'deliveryMode',
+    'name', 'description', 'image', 'images', 'category', 'classification', 'deliveryMode',
     'sizes', 'ingredients', 'avgPrepMinutes', 'available'
 ];
 

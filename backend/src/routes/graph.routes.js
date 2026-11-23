@@ -33,7 +33,6 @@ function startOfDayInTz(date, tz) {
 const stageTime = (order, status) =>
   order.stages?.find((s) => s.status === status)?.at ?? null
 
-// Quando o dinheiro "entrou"? Retorna null se ainda não contou.
 function creditedAt(order) {
   if (order.status === 'cancelled') return null
 
@@ -59,7 +58,6 @@ router.get('/', requireUser, async (req, res) => {
     try { new Intl.DateTimeFormat('en', { timeZone: tz }) }
     catch { return res.status(400).json({ message: 'Fuso horário inválido' }) }
 
-    // todos os restaurantes do chef (e não só o primeiro)
     const restaurants = await Restaurant.find({ ownerId: req.user._id }).select('_id name')
 
     if (!restaurants.length) {
@@ -71,7 +69,6 @@ router.get('/', requireUser, async (req, res) => {
     const now = new Date()
     const todayStart = startOfDayInTz(now, tz)
 
-    // as "gavetinhas"
     let rangeStart, bucketMs, bucketCount
     if (period === 'DAILY') {
       rangeStart = todayStart

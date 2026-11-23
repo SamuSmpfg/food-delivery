@@ -6,7 +6,7 @@ const restaurantSchema = new mongoose.Schema(
         ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         name: { type: String, required: true, trim: true },
         description: { type: String, required: true, trim: true },
-        image: { type: String, required: true, trim: true },
+        images: { type: [String], default: [] },
         address: addressSchema,
         specialty: { type: [String], required: true },
         category: { type: [String], required: true },

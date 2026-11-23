@@ -8,6 +8,7 @@ const dishSchema = new mongoose.Schema(
         name: { type: String, required: true, trim: true },
         description: { type: String, required: true, trim: true },
         image: { type: String, required: true, trim: true },
+        images: { type: [String], default: [] },
         category: { type: [String], required: true },
         classification: { type: String, enum: ['Breakfast', 'Lunch', 'Dinner'], required: true },
         deliveryMode: { type: String, enum: ['Delivery', 'Pickup', 'Dine-in'], required: true },

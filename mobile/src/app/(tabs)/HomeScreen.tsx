@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal, BackHandler } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal, BackHandler, Image } from 'react-native'
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useMemo } from 'react'
 import Feather from '@expo/vector-icons/Feather';
@@ -16,6 +16,7 @@ import { useRestaurants } from '../../../hooks/useRestaurants'
 import { useDishes } from '../../../hooks/useDishes'
 import { useAddresses } from '../../lib/addressStore'
 import { useSelectedAddressId } from '../../lib/selectedAddressStore'
+import { getImages } from '../../components/ImageCarousel'
 
 const ACCENTS: Record<string, string> = {
   á: 'a', à: 'a', â: 'a', ã: 'a', ä: 'a',
@@ -236,40 +237,51 @@ const HomeScreen = () => {
         <View style={styles.openRestaurantsContainer}>
           {loadingRestaurants && <Text style={styles.restaurantPlates}>Loading...</Text>}
           {restaurantsError && <Text style={styles.restaurantPlates}>{restaurantsError}</Text>}
-          {visibleRestaurants.map((restaurant) => (
-            <TouchableOpacity
-              key={restaurant._id}
-              activeOpacity={0.9}
-              onPress={() =>
-                router.navigate({
-                  pathname: '/(tabs)/RestaurantView',
-                  params: { id: restaurant._id, category: getMatchedCategory(restaurant._id) }
-                })
-              }
-            >
-              <View style={styles.restaurantsImage}/>
-              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.restaurantName}>{restaurant.name}</Text>
-              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.restaurantPlates}>{restaurant.specialty.join(' - ')}</Text>
-              <View style={styles.restaurantsExtras}>
-                <View style={styles.restaurantIconAndTextContainer}>
-                  <FontAwesome6 name="star" size={30} color="#FF7622" />
-                  <Text style={styles.restaurantRatingText}>{restaurant.rating}</Text>
-                </View>
+          {visibleRestaurants.map((restaurant) => {
+            const cover = getImages(restaurant)[0]
+            return (
+              <TouchableOpacity
+                key={restaurant._id}
+                activeOpacity={0.9}
+                onPress={() =>
+                  router.navigate({
+                    pathname: '/(tabs)/RestaurantView',
+                    params: { id: restaurant._id, category: getMatchedCategory(restaurant._id) }
+                  })
+                }
+              >
+                {cover ? (
+                  <Image
+                    source={{ uri: cover }}
+                    style={styles.restaurantsImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.restaurantsImage} />
+                )}
+                <Text numberOfLines={1} ellipsizeMode="tail" style={styles.restaurantName}>{restaurant.name}</Text>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={styles.restaurantPlates}>{restaurant.specialty.join(' - ')}</Text>
+                <View style={styles.restaurantsExtras}>
+                  <View style={styles.restaurantIconAndTextContainer}>
+                    <FontAwesome6 name="star" size={30} color="#FF7622" />
+                    <Text style={styles.restaurantRatingText}>{restaurant.rating}</Text>
+                  </View>
 
-                <View style={styles.restaurantIconAndTextContainer}>
-                  <Feather name="truck" size={30} color="#FF7622" />
-                  <Text style={styles.restaurantExtrasText}>
-                    {restaurant.deliveryFee === 0 ? 'Free' : `R$ ${restaurant.deliveryFee.toFixed(2)}`}
-                  </Text>
-                </View>
+                  <View style={styles.restaurantIconAndTextContainer}>
+                    <Feather name="truck" size={30} color="#FF7622" />
+                    <Text style={styles.restaurantExtrasText}>
+                      {restaurant.deliveryFee === 0 ? 'Free' : `R$ ${restaurant.deliveryFee.toFixed(2)}`}
+                    </Text>
+                  </View>
 
-                <View style={styles.restaurantIconAndTextContainer}>
-                  <AntDesign name="clock-circle" size={30} color="#FF7622" />
-                  <Text style={styles.restaurantExtrasText}>{restaurant.averageDeliveryTime} min</Text>
+                  <View style={styles.restaurantIconAndTextContainer}>
+                    <AntDesign name="clock-circle" size={30} color="#FF7622" />
+                    <Text style={styles.restaurantExtrasText}>{restaurant.averageDeliveryTime} min</Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            )
+          })}
           {!loadingRestaurants && !restaurantsError && visibleRestaurants.length === 0 && (
             <Text style={styles.restaurantPlates}>No restaurants in this category.</Text>
           )}
@@ -501,7 +513,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   restaurantsImage: {
-    width: 'auto',
+    width: '100%',
     height: 162,
     borderRadius: 10,
     backgroundColor: '#9CA8B8',

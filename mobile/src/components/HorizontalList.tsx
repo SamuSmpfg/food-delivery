@@ -79,7 +79,7 @@ const HorizontalList = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Popular Items This Weeks</Text>
+        <Text style={styles.title}>Popular Items This Week</Text>
         <TouchableOpacity>
           <Text style={styles.seeAll}>See All</Text>
         </TouchableOpacity>

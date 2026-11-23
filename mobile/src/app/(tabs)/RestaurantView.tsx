@@ -6,6 +6,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import Feather from '@expo/vector-icons/Feather'
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6'
 import FilterModal, { RestaurantFilters } from '../../components/FilterModal'
+import ImageCarousel, { getImages } from '../../components/ImageCarousel'
 import { useCart } from '../../context/CartContext'
 import { hasActiveFilters, matchesFoodFilters } from '../../lib/filters'
 import { useRestaurants } from '../../../hooks/useRestaurants'
@@ -110,13 +111,7 @@ const RestaurantView = () => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.hero}>
-          {restaurant.image ? (
-            <Image
-              source={{ uri: restaurant.image }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
-          ) : null}
+          <ImageCarousel images={getImages(restaurant)} height={320} />
 
           <View style={[styles.heroButtons, { top: insets.top + 16 }]}>
             <TouchableOpacity style={styles.circleButton} onPress={() => router.back()}>
@@ -132,17 +127,6 @@ const RestaurantView = () => {
                 color={filtersActive ? '#fff' : '#181C2E'}
               />
             </TouchableOpacity>
-          </View>
-
-          <View style={styles.dots}>
-            {[0, 1, 2, 3, 4].map((index) => (
-              <View
-                key={index}
-                style={index === 2 ? styles.dotActiveOuter : styles.dot}
-              >
-                {index === 2 && <View style={styles.dotActiveInner} />}
-              </View>
-            ))}
           </View>
         </View>
 
@@ -208,6 +192,7 @@ const RestaurantView = () => {
                   <View key={rowIndex} style={styles.foodRow}>
                     {row.map((food) => {
                       const basePrice = food.sizes?.[0]?.price ?? 0
+                      const cover = getImages(food)[0]
                       return (
                         <TouchableOpacity
                           key={food._id}
@@ -220,9 +205,9 @@ const RestaurantView = () => {
                             })
                           }
                         >
-                          {food.image ? (
+                          {cover ? (
                             <Image
-                              source={{ uri: food.image }}
+                              source={{ uri: cover }}
                               style={styles.foodCardImage}
                               resizeMode="cover"
                             />
@@ -309,37 +294,6 @@ const styles = StyleSheet.create({
   },
   circleButtonActive: {
     backgroundColor: '#FF7622'
-  },
-  dots: {
-    position: 'absolute',
-    bottom: 16,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.5)'
-  },
-  dotActiveOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 100,
-    borderWidth: 2,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  dotActiveInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 100,
-    backgroundColor: '#fff'
   },
   content: {
     paddingHorizontal: 24,

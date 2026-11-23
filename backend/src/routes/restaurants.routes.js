@@ -6,7 +6,7 @@ import { pick } from '../utils/pick.js';
 
 const router = Router();
 
-const editable = ['name', 'description', 'image', 'address', 'deliveryFee', 'averageDeliveryTime', 'isOpen'];
+const editable = ['name', 'description', 'image', 'images', 'address', 'deliveryFee', 'averageDeliveryTime', 'isOpen'];
 
 router.get('/', asyncHandler(async (req, res) => {
     const { q, isOpen } = req.query;

@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
@@ -7,6 +7,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
 import Feather from '@expo/vector-icons/Feather'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6'
+import ImageCarousel, { getImages } from '../../components/ImageCarousel'
 import { useCart } from '../../context/CartContext'
 import { useRestaurants } from '../../../hooks/useRestaurants'
 import { useDishesState } from '../../../hooks/useDishes'
@@ -88,13 +89,7 @@ const FoodDetails = () => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.hero}>
-          {food.image ? (
-            <Image
-              source={{ uri: food.image }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
-          ) : null}
+          <ImageCarousel images={getImages(food)} height={320} />
 
           <View style={[styles.heroButtons, { top: insets.top + 16 }]}>
             <TouchableOpacity style={styles.circleButton} onPress={() => router.back()}>

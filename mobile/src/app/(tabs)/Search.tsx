@@ -7,6 +7,7 @@ import { useMemo, useRef, useState, ComponentRef } from 'react'
 import { useRouter } from 'expo-router';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import FilterModal, { RestaurantFilters } from '@/components/FilterModal';
+import { getImages } from '@/components/ImageCarousel';
 import { useCart } from '@/context/CartContext';
 import { hasActiveFilters, matchesFoodFilters, matchesRestaurantFilters } from '@/lib/filters';
 import { useRestaurants } from '../../../hooks/useRestaurants'
@@ -277,32 +278,35 @@ const Search = () => {
           <Text style={styles.loadingText}>Loading...</Text>
         )}
 
-        {suggestedRestaurants.map((restaurant: any) => (
-          <View key={restaurant._id}>
-            <TouchableOpacity
-              style={styles.restaurantContainer}
-              onPress={() => goToRestaurant(restaurant._id)}
-            >
-              {restaurant.image ? (
-                <Image
-                  source={{ uri: restaurant.image }}
-                  style={styles.restaurantImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.restaurantImage} />
-              )}
-              <View style={styles.sugestedRestaurant}>
-                <Text numberOfLines={1} ellipsizeMode="tail" style={styles.sugestedRestaurantNameAndRating}>{restaurant.name}</Text>
-                <View style={styles.sugestedRestaurantRating}>
-                  <FontAwesome6 name="star" size={20} color="#FF7622" />
-                  <Text style={styles.sugestedRestaurantNameAndRating}>{restaurant.rating}</Text>
+        {suggestedRestaurants.map((restaurant: any) => {
+          const cover = getImages(restaurant)[0]
+          return (
+            <View key={restaurant._id}>
+              <TouchableOpacity
+                style={styles.restaurantContainer}
+                onPress={() => goToRestaurant(restaurant._id)}
+              >
+                {cover ? (
+                  <Image
+                    source={{ uri: cover }}
+                    style={styles.restaurantImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.restaurantImage} />
+                )}
+                <View style={styles.sugestedRestaurant}>
+                  <Text numberOfLines={1} ellipsizeMode="tail" style={styles.sugestedRestaurantNameAndRating}>{restaurant.name}</Text>
+                  <View style={styles.sugestedRestaurantRating}>
+                    <FontAwesome6 name="star" size={20} color="#FF7622" />
+                    <Text style={styles.sugestedRestaurantNameAndRating}>{restaurant.rating}</Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-            <View style={styles.lineDivisor}/>
-          </View>
-        ))}
+              </TouchableOpacity>
+              <View style={styles.lineDivisor}/>
+            </View>
+          )
+        })}
 
         {popularDishes.length > 0 && <Text style={styles.titles}>Popular Dishes</Text>}
 
@@ -407,41 +411,44 @@ const Search = () => {
           <>
             <Text style={styles.titles}>Open Restaurants</Text>
 
-            {filteredRestaurants.map((restaurant: any) => (
-              <TouchableOpacity
-                key={restaurant._id}
-                style={styles.openRestaurant}
-                activeOpacity={0.9}
-                onPress={() => goToRestaurant(restaurant._id)}
-              >
-                {restaurant.image ? (
-                  <Image
-                    source={{ uri: restaurant.image }}
-                    style={styles.openRestaurantImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={styles.openRestaurantImage}/>
-                )}
-                <Text numberOfLines={1} ellipsizeMode="tail" style={styles.openRestaurantName}>{restaurant.name}</Text>
-                <View style={styles.openRestaurantInfo}>
-                  <View style={styles.openRestaurantInfoItem}>
-                    <FontAwesome6 name="star" size={16} color="#FF7622" />
-                    <Text style={styles.openRestaurantInfoText}>{restaurant.rating}</Text>
+            {filteredRestaurants.map((restaurant: any) => {
+              const cover = getImages(restaurant)[0]
+              return (
+                <TouchableOpacity
+                  key={restaurant._id}
+                  style={styles.openRestaurant}
+                  activeOpacity={0.9}
+                  onPress={() => goToRestaurant(restaurant._id)}
+                >
+                  {cover ? (
+                    <Image
+                      source={{ uri: cover }}
+                      style={styles.openRestaurantImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.openRestaurantImage}/>
+                  )}
+                  <Text numberOfLines={1} ellipsizeMode="tail" style={styles.openRestaurantName}>{restaurant.name}</Text>
+                  <View style={styles.openRestaurantInfo}>
+                    <View style={styles.openRestaurantInfoItem}>
+                      <FontAwesome6 name="star" size={16} color="#FF7622" />
+                      <Text style={styles.openRestaurantInfoText}>{restaurant.rating}</Text>
+                    </View>
+                    <View style={styles.openRestaurantInfoItem}>
+                      <Feather name="truck" size={16} color="#FF7622" />
+                      <Text style={styles.openRestaurantInfoText}>
+                        {restaurant.deliveryFee === 0 ? 'Free' : formatPrice(restaurant.deliveryFee)}
+                      </Text>
+                    </View>
+                    <View style={styles.openRestaurantInfoItem}>
+                      <Feather name="clock" size={16} color="#FF7622" />
+                      <Text style={styles.openRestaurantInfoText}>{restaurant.averageDeliveryTime} min</Text>
+                    </View>
                   </View>
-                  <View style={styles.openRestaurantInfoItem}>
-                    <Feather name="truck" size={16} color="#FF7622" />
-                    <Text style={styles.openRestaurantInfoText}>
-                      {restaurant.deliveryFee === 0 ? 'Free' : formatPrice(restaurant.deliveryFee)}
-                    </Text>
-                  </View>
-                  <View style={styles.openRestaurantInfoItem}>
-                    <Feather name="clock" size={16} color="#FF7622" />
-                    <Text style={styles.openRestaurantInfoText}>{restaurant.averageDeliveryTime} min</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              )
+            })}
           </>
         )}
       </>
@@ -807,6 +814,7 @@ const styles = StyleSheet.create({
     marginTop: 16
   },
   openRestaurantImage: {
+    width: '100%',
     height: 140,
     borderRadius: 15,
     backgroundColor: '#98A8B8'

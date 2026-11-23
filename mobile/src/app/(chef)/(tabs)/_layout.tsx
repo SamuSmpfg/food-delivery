@@ -5,6 +5,7 @@ import TabBar from '../../../components/TabBar'
 export default function ChefTabsLayout() {
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <TabBar {...props} />}
     >

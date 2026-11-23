@@ -13,7 +13,7 @@ import { uploadImage } from '../../../utils/UploadImage'
 
 type Props = {}
 
-type DeliveryMode = 'Pickup' | 'Delivery' | 'Dine-in'
+type DeliveryMode = 'Pickup' | 'Delivery'
 
 type Classification = 'Breakfast' | 'Lunch' | 'Dinner'
 
@@ -31,8 +31,7 @@ const CLASSIFICATIONS: Classification[] = ['Breakfast', 'Lunch', 'Dinner']
 
 const DELIVERY_MODES: { label: string; value: DeliveryMode }[] = [
   { label: 'Pick up', value: 'Pickup' },
-  { label: 'Delivery', value: 'Delivery' },
-  { label: 'Dine-in', value: 'Dine-in' },
+  { label: 'Delivery', value: 'Delivery' }
 ]
 
 const CheckItem = ({ label, checked, onPress }: CheckItemProps) => (
@@ -91,20 +90,20 @@ const AddNew = (props: Props) => {
 
   const handleSave = async () => {
     if (!itemName.trim()) {
-      Alert.alert('Campo obrigatório', 'Informe o nome do item.')
+      Alert.alert('Required field', 'Enter the item name.')
       return
     }
     const priceNumber = Number(price.replace(',', '.'))
     if (!priceNumber || priceNumber <= 0) {
-      Alert.alert('Preço inválido', 'Informe um preço válido.')
+      Alert.alert('Invalid price', 'Enter a valid price.')
       return
     }
     if (!details.trim()) {
-      Alert.alert('Campo obrigatório', 'Escreva os detalhes do prato.')
+      Alert.alert('Required field', 'Write the details of the dish.')
       return
     }
     if (images.length === 0) {
-      Alert.alert('Foto obrigatória', 'Adicione pelo menos uma foto.')
+      Alert.alert('Mandatory photo', 'Add at least one photo.')
       return
     }
 
@@ -115,13 +114,13 @@ const AddNew = (props: Props) => {
       const mineRes = await fetch(`${API_URL}/api/restaurants/mine`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!mineRes.ok) throw new Error('Não foi possível buscar seu restaurante.')
+      if (!mineRes.ok) throw new Error('Unable to retrieve your restaurant.')
 
       const restaurants = await mineRes.json().catch(() => [])
       const restaurantId = Array.isArray(restaurants) ? restaurants[0]?._id : undefined
-      if (!restaurantId) throw new Error('Você ainda não tem um restaurante cadastrado.')
+      if (!restaurantId) throw new Error('You do not have a restaurant registered yet.')
 
-      const imageUrl = await uploadImage(images[0])
+      const imageUrls = await Promise.all(images.map((uri) => uploadImage(uri)))
 
       const res = await fetch(`${API_URL}/api/dishes`, {
         method: 'POST',
@@ -133,11 +132,12 @@ const AddNew = (props: Props) => {
           restaurantId,
           name: itemName.trim(),
           description: details.trim(),
-          image: imageUrl,
+          image: imageUrls[0],
+          images: imageUrls,
           category: [classification],
           classification,
           deliveryMode: option,
-          sizes: [{ label: 'Único', price: priceNumber }],
+          sizes: [{ label: 'Single', price: priceNumber }],
           ingredients: selectedIngredients.map(({ name, kind }) => ({ name, kind })),
         }),
       })
@@ -147,11 +147,11 @@ const AddNew = (props: Props) => {
         throw new Error(err.message || `Erro ${res.status}`)
       }
 
-      Alert.alert('Sucesso', 'Item criado com sucesso!', [
+      Alert.alert('Success', 'Item created successfully!', [
         { text: 'OK', onPress: () => { resetForm(); router.back() } },
       ])
     } catch (e: any) {
-      Alert.alert('Erro ao salvar', e.message ?? 'Tente novamente.')
+      Alert.alert('Error while saving', e.message ?? 'Try again.')
     } finally {
       setSaving(false)
     }
@@ -198,9 +198,9 @@ const AddNew = (props: Props) => {
           </View>
 
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={{ marginTop: 16 }}>
-              <Text style={styles.labels}>PRICE</Text>
-              <View style={styles.priceRow}>
+            <View style={styles.priceContainer}>
+              <View style={styles.priceColumn}>
+                <Text style={styles.labels}>PRICE</Text>
                 <TextInput
                   style={styles.priceInput}
                   placeholder='$50'
@@ -209,6 +209,17 @@ const AddNew = (props: Props) => {
                   value={price}
                   onChangeText={setPrice}
                 />
+              </View>
+
+              <View style={styles.deliveryOptions}>
+                {DELIVERY_MODES.map((m) => (
+                  <CheckItem
+                    key={m.value}
+                    label={m.label}
+                    checked={option === m.value}
+                    onPress={() => setOption(m.value)}
+                  />
+                ))}
               </View>
             </View>
           </TouchableWithoutFeedback>
@@ -222,20 +233,6 @@ const AddNew = (props: Props) => {
                   label={c}
                   checked={classification === c}
                   onPress={() => setClassification(c)}
-                />
-              ))}
-            </View>
-          </View>
-
-          <View style={{ marginTop: 16 }}>
-            <Text style={styles.labels}>DELIVERY MODE</Text>
-            <View style={styles.optionsRow}>
-              {DELIVERY_MODES.map((m) => (
-                <CheckItem
-                  key={m.value}
-                  label={m.label}
-                  checked={option === m.value}
-                  onPress={() => setOption(m.value)}
                 />
               ))}
             </View>
@@ -326,10 +323,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Sen_400Regular',
   },
-  priceRow: {
+  priceContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
+    alignItems: 'flex-end',
+    marginTop: 16,
+  },
+  priceColumn: {
+    marginRight: 20,
   },
   priceInput: {
     width: 115,
@@ -339,8 +339,17 @@ const styles = StyleSheet.create({
     borderColor: '#E8EAED',
     paddingLeft: 16,
     borderRadius: 12,
+    marginTop: 8,
     fontFamily: 'Sen_400Regular',
     fontSize: 14,
+  },
+  deliveryOptions: {
+    flex: 1,
+    height: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 16,
+    rowGap: 8,
   },
   optionsRow: {
     flexDirection: 'row',

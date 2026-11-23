@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Image,
+  KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native'
 import React, { useState, useRef, useEffect } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -12,6 +12,7 @@ import AntDesign from '@expo/vector-icons/AntDesign'
 import { useAddresses } from '@/lib/addressStore'
 import { useSelectedAddressId } from '@/lib/selectedAddressStore'
 import { useAccountAddress } from '../../../../../hooks/useAccountAddress'
+import ImageCarousel, { getImages } from '@/components/ImageCarousel'
 
 type Props = {}
 
@@ -38,6 +39,7 @@ type DishDto = {
   name: string
   description: string
   image: string
+  images?: string[]
   classification: string
   deliveryMode: string
   sizes: { label: string; price: number }[]
@@ -108,7 +110,7 @@ const toPayload = (changes: Partial<Food>, dish: DishDto) => {
   if (changes.classification !== undefined) payload.classification = changes.classification
   if (changes.deliveryMode !== undefined) payload.deliveryMode = changes.deliveryMode
   if (changes.price !== undefined) {
-    const [first, ...rest] = dish.sizes?.length ? dish.sizes : [{ label: 'Único', price: 0 }]
+    const [first, ...rest] = dish.sizes?.length ? dish.sizes : [{ label: 'Single', price: 0 }]
     payload.sizes = [{ ...first, price: Number(changes.price) || 0 }, ...rest]
   }
   if (changes.ingredients !== undefined) {
@@ -341,13 +343,12 @@ const ChefFoodDetails = (props: Props) => {
   const renderListHeader = () => (
     <View>
       <View style={styles.foodImg}>
-        {!!dish?.image && (
-          <Image
-            source={{ uri: dish.image }}
-            style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
-            resizeMode="cover"
-          />
-        )}
+        <ImageCarousel
+          images={getImages(dish)}
+          height={230}
+          dotsBottom={27}
+          variant="pill"
+        />
         {isEditing ? (
           <>
             <TouchableOpacity
@@ -578,6 +579,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   foodClass: {
     backgroundColor: '#FFFFFFCC',
