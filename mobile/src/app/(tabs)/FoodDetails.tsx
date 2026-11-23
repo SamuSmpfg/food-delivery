@@ -77,7 +77,8 @@ const FoodDetails = () => {
       restaurant: restaurantName,
       price: unitPrice,
       size: selectedSize?.label,
-      quantity
+      quantity,
+      deliveryFee: restaurant?.deliveryFee ?? 0
     })
     router.navigate('/(tabs)/Cart')
   }

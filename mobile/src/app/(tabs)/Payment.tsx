@@ -111,7 +111,7 @@ const PanelIcon = ({ method }: { method: Method }) => {
 const Payment = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { items, total, placeOrder } = useCart()
+  const { items, total, deliveryFee, grandTotal, placeOrder } = useCart()
   const { createOrder } = useCreateOrder()
   const { cards: savedCards, loading: cardsLoading } = useSavedCards()
 
@@ -128,7 +128,7 @@ const brandCards = savedCards.filter((card) => card.brand === method)
 const activeCard = brandCards.find((card) => card._id === selectedCardId) ?? brandCards[0]
 
   const finish = async (label: string, paymentMethod: PaymentKind) => {
-    const paid = total
+    const paid = grandTotal
 
     if (items.some((item) => !item.restaurantId)) {
       throw new Error('Remove the items from the cart and add them again')
@@ -202,7 +202,7 @@ const activeCard = brandCards.find((card) => card._id === selectedCardId) ?? bra
     try {
       const order = await postJson<{ id: string; approveUrl: string }>(
         '/api/payments/paypal/order',
-        { amount: total }
+        { amount: grandTotal }
       )
 
       await WebBrowser.openBrowserAsync(order.approveUrl)
@@ -347,9 +347,21 @@ const activeCard = brandCards.find((card) => card._id === selectedCardId) ?? bra
       <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
         {error !== '' && <Text style={styles.errorText}>{error}</Text>}
 
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>SUBTOTAL</Text>
+          <Text style={styles.summaryValue}>{formatMoney(total)}</Text>
+        </View>
+
+        <View style={[styles.summaryRow, styles.summaryRowSpaced]}>
+          <Text style={styles.summaryLabel}>DELIVERY FEE</Text>
+          <Text style={styles.summaryValue}>
+            {deliveryFee === 0 ? 'Free' : formatMoney(deliveryFee)}
+          </Text>
+        </View>
+
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>TOTAL:</Text>
-          <Text style={styles.totalValue}>{formatMoney(total)}</Text>
+          <Text style={styles.totalValue}>{formatMoney(grandTotal)}</Text>
         </View>
 
         <TouchableOpacity
@@ -604,6 +616,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#E04444',
     marginBottom: 12
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  summaryRowSpaced: {
+    marginTop: 8,
+    marginBottom: 12
+  },
+  summaryLabel: {
+    fontFamily: 'Sen_400Regular',
+    fontSize: 14,
+    color: '#A0A5BA'
+  },
+  summaryValue: {
+    fontFamily: 'Sen_400Regular',
+    fontSize: 14,
+    color: '#181C2E'
   },
   totalRow: {
     flexDirection: 'row',

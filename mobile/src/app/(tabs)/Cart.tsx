@@ -18,7 +18,8 @@ import { useCart } from '../../context/CartContext'
 const Cart = () => {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { items, total, address, setAddress, changeQuantity, removeItem } = useCart()
+  const { items, total, deliveryFee, grandTotal, address, setAddress, changeQuantity, removeItem } =
+    useCart()
 
   const [editing, setEditing] = useState(false)
   const [editingAddress, setEditingAddress] = useState(false)
@@ -128,10 +129,22 @@ const Cart = () => {
           )}
         </View>
 
+        <View style={[styles.sheetRow, styles.subtotalRow]}>
+          <Text style={styles.sheetLabel}>SUBTOTAL</Text>
+          <Text style={styles.feeValue}>${total.toFixed(2)}</Text>
+        </View>
+
+        <View style={[styles.sheetRow, styles.feeRow]}>
+          <Text style={styles.sheetLabel}>DELIVERY FEE</Text>
+          <Text style={styles.feeValue}>
+            {deliveryFee === 0 ? 'Free' : `$${deliveryFee.toFixed(2)}`}
+          </Text>
+        </View>
+
         <View style={[styles.sheetRow, styles.totalRow]}>
           <View style={styles.totalLeft}>
             <Text style={styles.sheetLabel}>TOTAL:</Text>
-            <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>${grandTotal.toFixed(2)}</Text>
           </View>
           <TouchableOpacity style={styles.breakdown}>
             <Text style={styles.breakdownText}>Breakdown</Text>
@@ -323,8 +336,19 @@ const styles = StyleSheet.create({
     color: '#181C2E',
     padding: 0
   },
+  subtotalRow: {
+    marginTop: 20
+  },
+  feeRow: {
+    marginTop: 8
+  },
+  feeValue: {
+    fontFamily: 'Sen_400Regular',
+    fontSize: 14,
+    color: '#181C2E'
+  },
   totalRow: {
-    marginTop: 24
+    marginTop: 16
   },
   totalLeft: {
     flexDirection: 'row',

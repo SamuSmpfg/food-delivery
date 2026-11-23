@@ -12,11 +12,14 @@ export type CartItem = {
   size: string
   quantity: number
   deliveryTime: number
+  deliveryFee: number
 }
 
 export type Order = {
   id: string
   items: CartItem[]
+  subtotal: number
+  deliveryFee: number
   total: number
   address: string
   placedAt: number
@@ -32,12 +35,15 @@ type AddPayload = {
   size?: string
   quantity?: number
   deliveryTime?: number | string
+  deliveryFee?: number | string
 }
 
 type CartContextValue = {
   items: CartItem[]
   count: number
   total: number
+  deliveryFee: number
+  grandTotal: number
   address: string
   order: Order | null
   setAddress: (value: string) => void
@@ -54,6 +60,15 @@ const CartContext = createContext<CartContextValue | null>(null)
 const formatAddress = (place: Location.LocationGeocodedAddress) => {
   const street = [place.street ?? place.name, place.streetNumber].filter(Boolean).join(' ')
   return [street, place.district, place.city, place.region].filter(Boolean).join(', ')
+}
+
+// Soma o frete uma vez por restaurante
+const calcDeliveryFee = (list: CartItem[]) => {
+  const fees = new Map<string, number>()
+  list.forEach((item) => {
+    if (!fees.has(item.restaurantId)) fees.set(item.restaurantId, item.deliveryFee)
+  })
+  return Array.from(fees.values()).reduce((sum, fee) => sum + fee, 0)
 }
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
@@ -101,7 +116,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     price,
     size = '',
     quantity = 1,
-    deliveryTime = 0
+    deliveryTime = 0,
+    deliveryFee = 0
   }: AddPayload) => {
     const key = `${id}-${size}`
     setItems((current) => {
@@ -122,7 +138,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           unitPrice: Number(price),
           size,
           quantity,
-          deliveryTime: Number(deliveryTime) || 0
+          deliveryTime: Number(deliveryTime) || 0,
+          deliveryFee: Number(deliveryFee) || 0
         }
       ]
     })
@@ -149,6 +166,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     [items]
   )
 
+  const deliveryFee = useMemo(() => calcDeliveryFee(items), [items])
+
+  const grandTotal = total + deliveryFee
+
   const placeOrder = (etaMinutes?: number) => {
     if (items.length === 0) return
     const orderItems = items.map((item) => ({ ...item }))
@@ -157,7 +178,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setOrder({
       id: String(Date.now()),
       items: orderItems,
-      total,
+      subtotal: total,
+      deliveryFee,
+      total: grandTotal,
       address,
       placedAt: Date.now(),
       etaMinutes: eta
@@ -192,6 +215,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       items,
       count,
       total,
+      deliveryFee,
+      grandTotal,
       address,
       order,
       setAddress,
@@ -202,7 +227,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       placeOrder,
       completeOrder,
     }),
-    [items, count, total, address, order, completeOrder]
+    [items, count, total, deliveryFee, grandTotal, address, order, completeOrder]
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>
