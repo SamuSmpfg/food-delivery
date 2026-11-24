@@ -155,7 +155,6 @@ const Reviews = () => {
       return (
         <View key={item._id} style={styles.reviewRow}>
           <View style={styles.profileImg}>
-            <Text style={styles.profileInitial}>{authorName.charAt(0).toUpperCase()}</Text>
           </View>
           <View style={styles.reviewBox}>
             <View style={styles.reviewHeader}>
@@ -164,7 +163,6 @@ const Reviews = () => {
                 <Feather name="more-horizontal" size={24} color="#9C9BA6" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.author}>{authorName}</Text>
             <Text style={styles.reviewTitle}>{item.title}</Text>
             <Stars rating={item.rating} />
             {!!item.description && <Text style={styles.comment}>{item.description}</Text>}

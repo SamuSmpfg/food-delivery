@@ -40,6 +40,7 @@ const TabsLayout = () => {
                 (route.params as { from?: string } | undefined)?.from === 'orders'
             })}
           />
+          <Stack.Screen name="WriteReview" />
         </Stack>
       </CartProvider>
     </StripeProvider>

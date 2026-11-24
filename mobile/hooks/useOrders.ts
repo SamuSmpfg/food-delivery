@@ -3,6 +3,14 @@ import { useAuth } from '@clerk/clerk-expo'
 
 export type OrderStatus = 'pending' | 'preparing' | 'delivering' | 'delivered' | 'cancelled'
 
+export type OrderItem = {
+  dishId: string
+  name: string
+  size?: string
+  unitPrice?: number
+  quantity: number
+}
+
 export type Order = {
   _id: string
   restaurantName: string
@@ -10,6 +18,7 @@ export type Order = {
   itemsCount: number
   status: OrderStatus
   createdAt: string
+  items: OrderItem[]
 }
 
 const useOrders = () => {

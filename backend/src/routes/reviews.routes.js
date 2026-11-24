@@ -108,12 +108,13 @@ router.post('/', requireUser, asyncHandler(async (req, res) => {
         if (restaurant?.ownerId) {
             await Notification.create({
                 userId: restaurant.ownerId,
+                actorId: req.user._id,
                 restaurantId: restaurant._id,
                 dishId,
                 orderId,
                 rating: review.rating,
-                title: 'New review',
-                description: review.title
+                title: req.user.name ?? 'The customer',
+                description: `left a ${review.rating} star review`
             });
         }
     } catch (err) {

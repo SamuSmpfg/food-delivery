@@ -107,7 +107,7 @@ const NotificationList = ({ data, refreshing, onRefresh, onRemove }: Notificatio
             </Text>
             <Text style={styles.time}>
               {formatTime(item.createdAt)}
-              {item.rating ? `  ·  ★ ${item.rating}` : ''}
+              {item.rating}
             </Text>
           </View>
           {item.dishId?.image ? (

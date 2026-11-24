@@ -7,9 +7,10 @@ type OrderCardProps = {
   order: Order
   onTrack?: () => void
   onCancel?: () => void
+  onPress?: () => void
 }
 
-const OrderCard = ({ order, onTrack, onCancel }: OrderCardProps) => {
+const OrderCard = ({ order, onTrack, onCancel, onPress }: OrderCardProps) => {
   const isOngoing = order.status !== 'delivered' && order.status !== 'cancelled'
   const date = new Date(order.createdAt)
   const dateLabel = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
@@ -34,54 +35,56 @@ const OrderCard = ({ order, onTrack, onCancel }: OrderCardProps) => {
 
   return (
     <SafeAreaView style={styles.orderContainer} edges={['left', 'right']}>
-      {isOngoing ? (
-        <Text style={styles.orderLabel}>Food</Text>
-      ) : (
-        <View style={styles.orderStatus}>
+      <TouchableOpacity activeOpacity={0.7} disabled={!onPress} onPress={onPress}>
+        {isOngoing ? (
           <Text style={styles.orderLabel}>Food</Text>
-          {order.status === 'delivered' ? (
-            <Text style={styles.orderStatusTextCompleted}>Completed</Text>
-          ) : (
-            <Text style={styles.orderStatusTextCancelled}>Cancelled</Text>
-          )}
-        </View>
-      )}
-
-      <View style={styles.lineSeparator}/>
-
-      <View>
-        <View>
-          <View style={styles.foodDetailContainer}>
-            <View style={styles.foodImg}/>
-            <View style={styles.restaurantDetail}>
-              <View style={styles.restaurantAndId}>
-                <Text style={[styles.restaurantAndPrice, styles.restaurantName]} numberOfLines={1}>{order.restaurantName}</Text>
-                <Text style={styles.id}>#{order._id.slice(-6).toUpperCase()}</Text>
-              </View>
-              <View style={styles.priceAndFood}>
-                <Text style={styles.restaurantAndPrice}>${order.total.toFixed(2)}</Text>
-                <View style={styles.lineDivisor}/>
-                <Text style={styles.order}>
-                  {isOngoing ? itemsLabel : `${dateLabel}, ${timeLabel} - ${itemsLabel}`}
-                </Text>
-              </View>
-            </View>
+        ) : (
+          <View style={styles.orderStatus}>
+            <Text style={styles.orderLabel}>Food</Text>
+            {order.status === 'delivered' ? (
+              <Text style={styles.orderStatusTextCompleted}>Completed</Text>
+            ) : (
+              <Text style={styles.orderStatusTextCancelled}>Cancelled</Text>
+            )}
           </View>
-          {isOngoing && (
-            <View style={styles.TouchableOpacityContainer}>
-              <TouchableOpacity
-                style={styles.trackOrderTouchableOpacity}
-                onPress={onTrack}>
-                <Text style={styles.trackOrderTouchableOpacityText}>Track Order</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelOrderTouchableOpacity} onPress={handleCancelPress}>
-                <Text style={styles.cancelOrderTouchableOpacityText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </View>
+        )}
 
+        <View style={styles.lineSeparator}/>
+
+        <View>
+          <View>
+            <View style={styles.foodDetailContainer}>
+              <View style={styles.foodImg}/>
+              <View style={styles.restaurantDetail}>
+                <View style={styles.restaurantAndId}>
+                  <Text style={[styles.restaurantAndPrice, styles.restaurantName]} numberOfLines={1}>{order.restaurantName}</Text>
+                  <Text style={styles.id}>#{order._id.slice(-6).toUpperCase()}</Text>
+                </View>
+                <View style={styles.priceAndFood}>
+                  <Text style={styles.restaurantAndPrice}>${order.total.toFixed(2)}</Text>
+                  <View style={styles.lineDivisor}/>
+                  <Text style={styles.order}>
+                    {isOngoing ? itemsLabel : `${dateLabel}, ${timeLabel} - ${itemsLabel}`}
+                  </Text>
+                </View>
+                {!!onPress && <Text style={styles.reviewHint}>Tap to write a review</Text>}
+              </View>
+            </View>
+            {isOngoing && (
+              <View style={styles.TouchableOpacityContainer}>
+                <TouchableOpacity
+                  style={styles.trackOrderTouchableOpacity}
+                  onPress={onTrack}>
+                  <Text style={styles.trackOrderTouchableOpacityText}>Track Order</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelOrderTouchableOpacity} onPress={handleCancelPress}>
+                  <Text style={styles.cancelOrderTouchableOpacityText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
     </SafeAreaView>
   )
 }
@@ -149,6 +152,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Sen_400Regular',
     fontSize: 12,
     color: '#6B6E82',
+  },
+  reviewHint: {
+    fontFamily: 'Sen_700Bold',
+    fontSize: 12,
+    color: '#FF7622',
+    marginTop: 8
   },
   TouchableOpacityContainer: {
     flexDirection: 'row',

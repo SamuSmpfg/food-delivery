@@ -161,18 +161,6 @@ const handleSignOut = async () => {
                         </View>
                     </View>
                 </TouchableOpacity>
-
-                <TouchableOpacity>
-                    <View style={styles.infosTouchableOpacity}>
-                        <View style={styles.icons}>
-                            <MaterialCommunityIcons name="comment-account-outline" size={24} color="#413DFB" />
-                        </View>
-                        <Text style={styles.iconsLabels}>Write a Review</Text>
-                        <View style={styles.detailsArrow}>
-                            <MaterialIcons name="keyboard-arrow-right" size={24} color="#747783" />
-                        </View>
-                    </View>
-                </TouchableOpacity>
             </View>
 
 

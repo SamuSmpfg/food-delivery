@@ -3,7 +3,7 @@ import React, { useCallback, useMemo, useState } from 'react'
 import TabButtons, { TabButtonType } from './TabButtons'
 import { useRouter, useFocusEffect } from 'expo-router'
 import OrderCard from './OrderCard'
-import useOrders from '../../hooks/useOrders'
+import useOrders, { Order } from '../../hooks/useOrders'
 
 export enum CustomTab {
   Tab1,
@@ -59,6 +59,13 @@ const TabScreen = () => {
     ])
   }
 
+  const handleReview = (order: Order) => {
+    router.push({
+      pathname: '/(tabs)/WriteReview',
+      params: { orderId: order._id, items: JSON.stringify(order.items ?? []) },
+    })
+  }
+
   return (
     <>
       <TabButtons
@@ -94,6 +101,7 @@ const TabScreen = () => {
               order={order}
               onTrack={() => router.push({ pathname: '/(tabs)/TrackingOrder', params: { from: 'orders' } })}
               onCancel={() => handleCancel(order._id)}
+              onPress={order.status === 'delivered' ? () => handleReview(order) : undefined}
             />
           ))
         )}
