@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Message from '../models/messagesModel.js';
 import Order from '../models/orderModel.js';
 import Restaurant from '../models/restuarantModel.js';
+import User from '../models/userModel.js';
 import { asyncHandler, requireUser, validateId } from '../middleware/auth.js';
 
 const router = Router();
@@ -74,6 +75,26 @@ router.get('/conversations', asyncHandler(async (req, res) => {
     ]);
 
     res.json(conversations);
+}));
+
+router.get('/order/:orderId/contact', validateId('orderId'), asyncHandler(async (req, res) => {
+    const order = await Order.findById(req.params.orderId);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    const restaurant = await Restaurant.findById(order.restaurantId);
+    const isCustomer = String(order.userId) === String(req.user._id);
+    const isChef = !!restaurant?.ownerId && String(restaurant.ownerId) === String(req.user._id);
+    if (!isCustomer && !isChef) return res.status(403).json({ message: 'Forbidden' });
+
+    const otherId = isCustomer ? restaurant?.ownerId : order.userId;
+    if (!otherId) return res.status(404).json({ message: 'Contact not found' });
+
+    const other = await User.findById(otherId).select('name image').lean();
+    res.json({
+        _id: String(otherId),
+        name: other?.name ?? 'Unknown user',
+        image: other?.image ?? null
+    });
 }));
 
 router.get('/order/:orderId', validateId('orderId'), asyncHandler(async (req, res) => {

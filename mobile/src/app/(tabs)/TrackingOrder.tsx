@@ -46,6 +46,12 @@ type ApiOrder = {
   updatedAt: string
 }
 
+type Chef = {
+  _id: string
+  name: string
+  image?: string | null
+}
+
 const ACTIVE_STATUSES: OrderStatus[] = ['pending', 'accepted', 'preparing', 'ready', 'delivering']
 
 const STAGE_BY_STATUS: Record<OrderStatus, number> = {
@@ -77,6 +83,7 @@ const TrackingOrder = () => {
   const [now, setNow] = useState(Date.now())
   const [orders, setOrders] = useState<ApiOrder[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [chef, setChef] = useState<Chef | null>(null)
 
   const getTokenRef = useRef(getToken)
   getTokenRef.current = getToken
@@ -179,6 +186,35 @@ const TrackingOrder = () => {
       ) ?? null
     )
   }, [orders, now])
+
+  const orderId = order?._id
+
+  useEffect(() => {
+    if (!orderId || !isLoaded || !isSignedIn || !API_URL) return
+
+    let active = true
+    setChef(null)
+
+    const loadChef = async () => {
+      try {
+        const token = await getTokenRef.current()
+        const res = await fetch(`${API_URL}/api/messages/order/${orderId}/contact`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (!res.ok) return
+        const data: Chef = await res.json()
+        if (active) setChef(data)
+      } catch (error) {
+        console.error('Error loading chef:', error)
+      }
+    }
+
+    loadChef()
+
+    return () => {
+      active = false
+    }
+  }, [orderId, isLoaded, isSignedIn])
 
   const detailsOpacity = translateY.interpolate({
     inputRange: [0, MAX_OFFSET * 0.6],
@@ -327,12 +363,18 @@ const TrackingOrder = () => {
 
               {!cancelled && (
                 <View style={[styles.courierCard, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-                  <View style={styles.courierAvatar}>
-                    <Ionicons name="person" size={28} color="#fff" />
-                  </View>
+                  {chef?.image ? (
+                    <Image source={{ uri: chef.image }} style={styles.courierAvatar} resizeMode="cover" />
+                  ) : (
+                    <View style={styles.courierAvatar}>
+                      <Ionicons name="person" size={28} color="#fff" />
+                    </View>
+                  )}
                   <View style={styles.courierInfo}>
-                    <Text style={styles.courierName}>Robert F.</Text>
-                    <Text style={styles.courierRole}>Courier</Text>
+                    <Text style={styles.courierName} numberOfLines={1}>
+                      {chef?.name ?? order.restaurantName ?? ''}
+                    </Text>
+                    <Text style={styles.courierRole}>Chef</Text>
                   </View>
                   <TouchableOpacity
                     style={styles.callButton}
@@ -342,7 +384,9 @@ const TrackingOrder = () => {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.messageButton}
-                    onPress={() => router.navigate('/(tabs)/Chat')}
+                    onPress={() =>
+                      router.navigate({ pathname: '/(tabs)/Chat', params: { orderId: order._id } })
+                    }
                   >
                     <FontAwesome5 name="facebook-messenger" size={24} color="#F07F2E" />
                   </TouchableOpacity>

@@ -97,18 +97,16 @@ const NotificationList = ({ data, refreshing, onRefresh, onRemove }: Notificatio
             <Image
               source={{ uri: (item.actorId?.image ?? item.restaurantId?.image) as string }}
               style={styles.profileImg}
-                />
-                ) : (
-                  <View style={styles.profileImg} />)}
+            />
+          ) : (
+            <View style={styles.profileImg} />
+          )}
           <View style={styles.notifMinorContainer}>
             <Text style={styles.notificationUser}>
               {item.title}
               <Text style={styles.orderCategory}> {item.description}</Text>
             </Text>
-            <Text style={styles.time}>
-              {formatTime(item.createdAt)}
-              {item.rating}
-            </Text>
+            <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
           </View>
           {item.dishId?.image ? (
             <Image source={{ uri: item.dishId.image }} style={styles.foodImg} />
@@ -125,11 +123,11 @@ type MessagesListProps = {
   data: Conversation[]
   refreshing: boolean
   onRefresh: () => void
-  onRead: (orderId: string, userId: string) => void
+  onOpen: (conversation: Conversation) => void
   onRemove: (orderId: string, userId: string) => void
 }
 
-const MessagesList = ({ data, refreshing, onRefresh, onRead, onRemove }: MessagesListProps) => {
+const MessagesList = ({ data, refreshing, onRefresh, onOpen, onRemove }: MessagesListProps) => {
   return (
     <FlatList
       data={data}
@@ -146,7 +144,7 @@ const MessagesList = ({ data, refreshing, onRefresh, onRead, onRemove }: Message
         return (
           <TouchableOpacity
             style={styles.messageRow}
-            onPress={() => onRead(item.orderId, item.user._id)}
+            onPress={() => onOpen(item)}
             onLongPress={() =>
               Alert.alert('Delete conversation', 'Remove this conversation?', [
                 { text: 'Cancel', style: 'cancel' },
@@ -228,12 +226,12 @@ const NotificationsScreen = () => {
   }, [getToken])
 
   useFocusEffect(
-  useCallback(() => {
-    load()
-    const timer = setInterval(load, 15000)
-    return () => clearInterval(timer)
-  }, [load])
-)
+    useCallback(() => {
+      load()
+      const timer = setInterval(load, 15000)
+      return () => clearInterval(timer)
+    }, [load])
+  )
 
   useEffect(() => {
     const sub = Notifications.addNotificationReceivedListener(() => {
@@ -284,6 +282,18 @@ const NotificationsScreen = () => {
     } catch {
       load()
     }
+  }
+
+  const openConversation = (conversation: Conversation) => {
+    markAsRead(conversation.orderId, conversation.user._id)
+    router.push({
+      pathname: '/(chef)/Chat',
+      params: {
+        orderId: conversation.orderId,
+        userId: conversation.user._id,
+        name: conversation.user.name,
+      },
+    })
   }
 
   const removeConversation = async (orderId: string, userId: string) => {
@@ -358,7 +368,7 @@ const NotificationsScreen = () => {
             data={conversations}
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            onRead={markAsRead}
+            onOpen={openConversation}
             onRemove={removeConversation}
           />
         )}
@@ -520,8 +530,8 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   newOrderTitle: {
-  color: '#32B768',
-},
+    color: '#32B768',
+  },
 })
 
 export default NotificationsScreen
