@@ -33,10 +33,6 @@
           "imageWidth": 76
         }
       ],
-      ["expo-location", {
-         "locationWhenInUsePermission": "We use your location to automatically fill in the address." 
-         }
-        ],
       "expo-secure-store",
       "expo-font",
       [
@@ -49,7 +45,8 @@
       "expo-web-browser",
       "expo-asset",
       "expo-image",
-      "expo-status-bar"
+      "expo-status-bar",
+      ["expo-notifications", { "color": "#FF7622" }]
     ],
     "experiments": {
       "typedRoutes": true,

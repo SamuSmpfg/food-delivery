@@ -2,7 +2,8 @@ import NotificationsTabScreen, { NotificationTab } from '../../../components/Not
 import { MaterialIcons } from '@expo/vector-icons'
 import { useAuth } from '@clerk/clerk-expo'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback, useState } from 'react'
+import * as Notifications from 'expo-notifications'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -22,6 +23,8 @@ type Dish = { _id: string; name: string; image?: string }
 
 type NotificationItem = {
   _id: string
+  type?: string
+  actorId?: { _id: string; name: string; image?: string } | null
   title: string
   description: string
   rating?: number
@@ -90,13 +93,15 @@ const NotificationList = ({ data, refreshing, onRefresh, onRemove }: Notificatio
           }
           style={styles.notificationRow}
         >
-          {item.restaurantId?.image ? (
-            <Image source={{ uri: item.restaurantId.image }} style={styles.profileImg} />
-          ) : (
-            <View style={styles.profileImg} />
-          )}
+          {item.actorId?.image || item.restaurantId?.image ? (
+            <Image
+              source={{ uri: (item.actorId?.image ?? item.restaurantId?.image) as string }}
+              style={styles.profileImg}
+                />
+                ) : (
+                  <View style={styles.profileImg} />)}
           <View style={styles.notifMinorContainer}>
-            <Text style={styles.userName}>
+            <Text style={styles.notificationUser}>
               {item.title}
               <Text style={styles.orderCategory}> {item.description}</Text>
             </Text>
@@ -194,7 +199,7 @@ const MessagesList = ({ data, refreshing, onRefresh, onRead, onRemove }: Message
   )
 }
 
-const Notifications = () => {
+const NotificationsScreen = () => {
   const router = useRouter()
   const { getToken } = useAuth()
   const [tab, setTab] = useState<NotificationTab>(NotificationTab.Notifications)
@@ -223,10 +228,19 @@ const Notifications = () => {
   }, [getToken])
 
   useFocusEffect(
-    useCallback(() => {
+  useCallback(() => {
+    load()
+    const timer = setInterval(load, 15000)
+    return () => clearInterval(timer)
+  }, [load])
+)
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationReceivedListener(() => {
       load()
-    }, [load])
-  )
+    })
+    return () => sub.remove()
+  }, [load])
 
   const handleRefresh = () => {
     setRefreshing(true)
@@ -429,6 +443,11 @@ const styles = StyleSheet.create({
     color: '#181C2E',
     fontSize: 13,
   },
+  notificationUser: {
+    color: '#32343E',
+    fontFamily: 'Sen_400Regular',
+    fontSize: 14
+  },
   orderCategory: {
     color: '#98A8B8',
     fontFamily: 'Sen_400Regular',
@@ -500,6 +519,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
   },
+  newOrderTitle: {
+  color: '#32B768',
+},
 })
 
-export default Notifications
+export default NotificationsScreen

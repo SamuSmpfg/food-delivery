@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema(
         name: { type: String, required: true, trim: true },
         email: { type: String, required: true, trim: true, lowercase: true },
         phone: { type: String, trim: true, default: '' },
+        image: { type: String, required: true, trim: true },
         role: {
             type: String,
             enum: ['customer', 'chef', 'courier'],
@@ -26,7 +27,8 @@ const userSchema = new mongoose.Schema(
         paymentMethods: [paymentMethodSchema],
         savedCards: { type: [savedCardSchema], default: [] },
         balance: { type: Number, default: 0, min: 0 },
-        ordersCount: { type: Number, default: 0, min: 0 }
+        ordersCount: { type: Number, default: 0, min: 0 },
+        expoPushTokens: { type: [String], default: [] }
     },
     { timestamps: true },
 );

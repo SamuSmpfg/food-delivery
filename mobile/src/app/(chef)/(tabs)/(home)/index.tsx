@@ -13,6 +13,7 @@ import { useSharedValue } from 'react-native-reanimated'
 import HorizontalList from '@/components/HorizontalList'
 import { router, useFocusEffect } from 'expo-router'
 import { useAuth, useUser } from '@clerk/clerk-expo'
+import * as Notifications from 'expo-notifications'
 import { useAddresses } from '@/lib/addressStore'
 import { useSelectedAddressId } from '@/lib/selectedAddressStore'
 import { useAccountAddress } from '../../../../../hooks/useAccountAddress'
@@ -234,6 +235,18 @@ const loadGraph = useCallback(async () => {
   useEffect(() => {
     loadGraph()
   }, [loadGraph])
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationReceivedListener((notification) => {
+      const type = notification.request.content.data?.type
+      if (type === 'order_new' || type === 'order_cancelled') {
+        loadOrderRequests()
+        loadOrders()
+        loadGraph()
+      }
+    })
+    return () => sub.remove()
+  }, [loadOrderRequests, loadOrders, loadGraph])
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true)

@@ -7,6 +7,7 @@ import Restaurant from '../models/restuarantModel.js'
 import Dish from '../models/dishesModel.js'
 import { verifyPaymentIntent, refundOrderIfPaid } from '../utils/stripePayments.js'
 import { notifyCustomerOfStatus } from '../utils/orderNotifications.js'
+import { notifyChefOfNewOrder, notifyChefOfCancellation } from '../utils/chefNotifications.js'
 
 const router = Router()
 
@@ -271,6 +272,12 @@ router.post('/', async (req, res) => {
       await creditRestaurantBalance(order)
     }
 
+    try {
+      await notifyChefOfNewOrder({ order, restaurant, customer: req.user })
+    } catch (notifyError) {
+      console.error('NOTIFY CHEF (NEW ORDER) ERROR:', notifyError)
+    }
+
     await order.populate(POPULATE_RESTAURANT)
     res.status(201).json(toResponse(order))
   } catch (error) {
@@ -308,6 +315,12 @@ router.patch('/:id/cancel', async (req, res) => {
 
     await refundOrderIfPaid(order)
     await debitRestaurantBalance(order)
+
+    try {
+      await notifyChefOfCancellation({ order, customer: req.user })
+    } catch (notifyError) {
+      console.error('NOTIFY CHEF (CANCEL) ERROR:', notifyError)
+    }
 
     res.json(toResponse(order))
   } catch (error) {

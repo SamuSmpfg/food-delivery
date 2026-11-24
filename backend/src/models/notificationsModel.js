@@ -10,6 +10,11 @@ const notificationSchema = new mongoose.Schema(
         rating: { type: Number, min: 1, max: 5 },
         title: { type: String, required: true, trim: true },
         description: { type: String, required: true, trim: true },
+        type: {
+            type: String,
+            enum: ['order_new', 'order_cancelled', 'order_status', 'review', 'general'],
+            default: 'general'
+        },
     },
     { timestamps: true }
 );

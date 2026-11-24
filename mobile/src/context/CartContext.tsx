@@ -62,7 +62,6 @@ const formatAddress = (place: Location.LocationGeocodedAddress) => {
   return [street, place.district, place.city, place.region].filter(Boolean).join(', ')
 }
 
-// Soma o frete uma vez por restaurante
 const calcDeliveryFee = (list: CartItem[]) => {
   const fees = new Map<string, number>()
   list.forEach((item) => {
