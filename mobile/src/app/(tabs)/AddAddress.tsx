@@ -94,8 +94,8 @@ const AddAddress = () => {
       }
       if (permission.status !== 'granted') {
         Alert.alert(
-          'Localização desativada',
-          'Permita o acesso à localização para preencher o endereço automaticamente.'
+          'Location disabled',
+          'Allow access to your location to automatically fill in the address.'
         )
         return
       }
@@ -126,7 +126,7 @@ const AddAddress = () => {
 
   const handleSave = async () => {
     if (!address.trim() || !coords) {
-      Alert.alert('Endereço obrigatório', 'Aguarde a localização ou informe o endereço.')
+      Alert.alert('Address required', 'Please wait for the location to be determined or enter the address.')
       return
     }
     setSaving(true)
