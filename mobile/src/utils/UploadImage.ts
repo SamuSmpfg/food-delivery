@@ -8,14 +8,14 @@ const uriToDataUri = async (uri: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onloadend = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Falha ao ler a imagem.'))
+    reader.onerror = () => reject(new Error('Failed to read the image.'))
     reader.readAsDataURL(blob)
   })
 }
 
 export async function uploadImage(uri: string): Promise<string> {
   if (!CLOUD_NAME || !UPLOAD_PRESET) {
-    throw new Error('Cloudinary não configurado.')
+    throw new Error('Cloudinary not configured.')
   }
 
   const dataUri = await uriToDataUri(uri)

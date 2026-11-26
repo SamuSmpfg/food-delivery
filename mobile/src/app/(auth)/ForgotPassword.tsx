@@ -23,7 +23,7 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [cooldown, setCooldown] = useState(0);
-  const inputs = useRef<(TextInput | null)[]>([]);
+  const inputs = useRef<(React.ComponentRef<typeof TextInput> | null)[]>([]);
 
   const grayScale = useRef(new Animated.Value(0.8)).current;
   const dashedScale = useRef(new Animated.Value(0.8)).current;

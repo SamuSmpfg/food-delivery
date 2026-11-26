@@ -46,18 +46,18 @@ app.use((err, req, res, next) => {
 const port = process.env.PORT || 3000
 
 if (!process.env.MONGODB_URI) {
-  console.error('MONGODB_URI não está definida. Confira o arquivo .env')
+  console.error('MONGODB_URI is not defined. Check the .env file.')
   process.exit(1)
 }
 
-console.log('Conectando ao MongoDB...')
+console.log('Connecting to MongoDB...')
 
 mongoose
   .connect(process.env.MONGODB_URI, {
     serverSelectionTimeoutMS: 10000,
   })
   .then(() => {
-    console.log('MongoDB conectado')
+    console.log('MongoDB connected')
     app.listen(port, '0.0.0.0', () => {
       console.log(`Server running on port ${port}`)
     })

@@ -35,7 +35,7 @@ router.get('/popular', requireUser, requireRole('chef'), asyncHandler(async (req
     const restaurants = await Restaurant.find({ ownerId: req.user._id }).select('_id');
     const dishes = await Dish.find({ restaurantId: { $in: restaurants.map((r) => r._id) } })
         .sort({ orderCount: -1, rating: -1, reviewsCount: -1 })
-        .limit(10);
+        .limit(5);
     res.json(dishes);
 }));
 

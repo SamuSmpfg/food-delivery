@@ -38,12 +38,12 @@ const useOrders = () => {
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/orders`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!response.ok) throw new Error(`Erro ${response.status} ao carregar os pedidos`)
+      if (!response.ok) throw new Error(`Error ${response.status} loading orders`)
       const data: Order[] = await response.json()
       setOrders(data)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Não foi possível carregar os pedidos')
+      setError(e instanceof Error ? e.message : 'Unable to load orders')
     } finally {
       setLoading(false)
     }

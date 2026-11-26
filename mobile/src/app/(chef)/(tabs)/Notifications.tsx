@@ -36,7 +36,7 @@ type NotificationItem = {
 type Conversation = {
   _id: string
   orderId: string
-  user: { _id: string; name: string }
+  user: { _id: string; name: string; isActive: boolean }
   lastMessage: string
   lastMessageAt: string
   unreadCount: number
@@ -160,6 +160,12 @@ const MessagesList = ({ data, refreshing, onRefresh, onOpen, onRemove }: Message
               <Text style={styles.avatarInitial}>
                 {item.user.name.charAt(0).toUpperCase()}
               </Text>
+              <View
+                style={[
+                  styles.activeDot,
+                  item.user.isActive ? styles.activeDotOn : styles.activeDotOff,
+                ]}
+              />
             </View>
 
             <View style={styles.messageTextContainer}>
@@ -494,6 +500,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#fff',
   },
+  activeDot: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 100,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  activeDotOn: {
+    backgroundColor: '#1AD52B',
+  },
+  activeDotOff: {
+    backgroundColor: '#9C9BA6',
+  },
   messageTextContainer: {
     flex: 1,
     gap: 6,
@@ -528,10 +550,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Sen_700Bold',
     fontSize: 12,
     color: '#fff',
-  },
-  newOrderTitle: {
-    color: '#32B768',
-  },
+  }
 })
 
 export default NotificationsScreen

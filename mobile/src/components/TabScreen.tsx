@@ -13,7 +13,6 @@ export enum CustomTab {
 const TabScreen = () => {
   const router = useRouter()
   const [selectedTab, setSelectedTab] = useState<CustomTab>(CustomTab.Tab1)
-  const [selectedFoodTab, setSelectedFoodTab] = useState<CustomTab>(CustomTab.Tab1)
   const { orders, loading, error, refetch, cancelOrder } = useOrders()
 
   useFocusEffect(

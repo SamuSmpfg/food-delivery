@@ -51,12 +51,12 @@ router.get('/', requireUser, async (req, res) => {
   try {
     const period = String(req.query.period || 'DAILY').toUpperCase()
     if (!['DAILY', 'WEEKLY'].includes(period)) {
-      return res.status(400).json({ message: 'Período inválido' })
+      return res.status(400).json({ message: 'Invalid Period' })
     }
 
     const tz = String(req.query.tz || 'UTC')
     try { new Intl.DateTimeFormat('en', { timeZone: tz }) }
-    catch { return res.status(400).json({ message: 'Fuso horário inválido' }) }
+    catch { return res.status(400).json({ message: 'Invalid time zone' }) }
 
     const restaurants = await Restaurant.find({ ownerId: req.user._id }).select('_id name')
 

@@ -36,7 +36,7 @@ const useCreateOrder = () => {
     })
     const body = await response.json().catch(() => null)
     if (!response.ok) {
-      throw new Error(body?.message ?? `Erro ${response.status} ao criar o pedido`)
+      throw new Error(body?.message ?? `Error ${response.status} creating the order`)
     }
     return body
   }, [])

@@ -8,7 +8,7 @@ function getTransporter() {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
 
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    console.warn('SMTP não configurado. Faltando:', {
+    console.warn('SMTP not configured. Missing:', {
       SMTP_HOST: !!SMTP_HOST,
       SMTP_USER: !!SMTP_USER,
       SMTP_PASS: !!SMTP_PASS,
@@ -30,9 +30,9 @@ function getTransporter() {
 
   transporter.verify((error) => {
     if (error) {
-      console.error('Falha ao conectar no SMTP:', error.message);
+      console.error('Failed to connect to SMTP:', error.message);
     } else {
-      console.log('SMTP pronto para enviar emails');
+      console.log('SMTP ready to send emails');
     }
   });
 
@@ -52,7 +52,7 @@ export async function sendMail({ to, subject, text, html }) {
   const mailer = getTransporter();
 
   if (!mailer) {
-    console.warn(`SMTP não configurado: email para ${to} não foi enviado.`);
+    console.warn(`SMTP not configured: email to ${to} was not sent.`);
     return false;
   }
 
@@ -65,10 +65,10 @@ export async function sendMail({ to, subject, text, html }) {
       html,
     });
 
-    console.log(`Email enviado para ${to}:`, info.messageId, info.response);
+    console.log(`Email sent to ${to}:`, info.messageId, info.response);
     return true;
   } catch (error) {
-    console.error(`Erro ao enviar email para ${to}:`, error.message);
+    console.error(`Error sending email to ${to}:`, error.message);
     return false;
   }
 }

@@ -5,7 +5,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL
 export type ApiDishSize = { label: string; price: number }
 export type ApiDishIngredient = { name: string; kind: string }
 
-export type ApiDish = {
+export type ApiDish = { 
   _id: string
   restaurantId: string
   name: string

@@ -25,8 +25,8 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
     const { type, data } = JSON.parse(rawBody)
 
     if (type === 'user.created' || type === 'user.updated') {
-      const email = data.email_addresses?.find(
-        (item) => item.id === data.primary_email_address_id
+      const email = data.email_addresses?.
+      find((item) => item.id === data.primary_email_address_id
       )?.email_address
 
       if (!email) return res.status(200).json({ received: true })

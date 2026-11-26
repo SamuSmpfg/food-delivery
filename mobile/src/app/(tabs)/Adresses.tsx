@@ -26,9 +26,9 @@ const Adresses = () => {
   }
 
   const confirmDelete = (item: Address) => {
-    Alert.alert('Excluir endereço', `Deseja excluir o endereço "${item.label}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: () => removeAddress(item.id) },
+    Alert.alert('Delete address', `Do you want to delete the address? "${item.label}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => removeAddress(item.id) },
     ])
   }
 

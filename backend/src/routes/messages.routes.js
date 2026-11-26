@@ -8,7 +8,16 @@ import { asyncHandler, requireUser, validateId } from '../middleware/auth.js';
 
 const router = Router();
 
+const ACTIVE_WINDOW_MS = 2 * 60 * 1000;
+
 router.use(requireUser);
+
+router.use(async (req, res, next) => {
+    try {
+        await User.updateOne({ _id: req.user._id }, { lastActiveAt: new Date() });
+    } catch {}
+    next();
+});
 
 const getParticipants = async (orderId) => {
     const order = await Order.findById(orderId);
@@ -65,7 +74,8 @@ router.get('/conversations', asyncHandler(async (req, res) => {
                 orderId: '$_id.orderId',
                 user: {
                     _id: { $ifNull: ['$user._id', '$_id.otherUserId'] },
-                    name: { $ifNull: ['$user.name', 'Unknown user'] }
+                    name: { $ifNull: ['$user.name', 'Unknown user'] },
+                    lastActiveAt: '$user.lastActiveAt'
                 },
                 lastMessage: 1,
                 lastMessageAt: 1,
@@ -74,7 +84,19 @@ router.get('/conversations', asyncHandler(async (req, res) => {
         }
     ]);
 
-    res.json(conversations);
+    const now = Date.now();
+    const result = conversations.map((conversation) => {
+        const { lastActiveAt, ...user } = conversation.user;
+        return {
+            ...conversation,
+            user: {
+                ...user,
+                isActive: !!lastActiveAt && now - new Date(lastActiveAt).getTime() < ACTIVE_WINDOW_MS
+            }
+        };
+    });
+
+    res.json(result);
 }));
 
 router.get('/order/:orderId/contact', validateId('orderId'), asyncHandler(async (req, res) => {

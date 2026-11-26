@@ -31,7 +31,7 @@ router.post('/', asyncHandler(async (req, res) => {
         application.status = 'approved';
         await application.save();
     } catch (error) {
-        console.error('Erro ao enviar convite de chef:', error.message);
+        console.error('Error sending chef invitation:', error.message);
     }
 
     res.status(201).json(application);

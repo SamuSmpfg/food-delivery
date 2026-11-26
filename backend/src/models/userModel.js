@@ -28,7 +28,8 @@ const userSchema = new mongoose.Schema(
         savedCards: { type: [savedCardSchema], default: [] },
         balance: { type: Number, default: 0, min: 0 },
         ordersCount: { type: Number, default: 0, min: 0 },
-        expoPushTokens: { type: [String], default: [] }
+        expoPushTokens: { type: [String], default: [] },
+        lastActiveAt: { type: Date, default: null },
     },
     { timestamps: true },
 );

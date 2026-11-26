@@ -22,11 +22,10 @@ const refreshStats = async (Model, id, field) => {
 
 const listReviews = (field) =>
     asyncHandler(async (req, res) => {
-        const total = await Review.countDocuments({ [field]: req.params.id });
         const reviews = await Review.find({ [field]: req.params.id })
             .populate('userId', 'name')
             .sort({ createdAt: -1, _id: -1 })
-            .limit(50)
+            .limit(0)
             .lean();
         res.json(reviews);
     });
@@ -38,7 +37,7 @@ router.get('/mine', requireUser, asyncHandler(async (req, res) => {
     const reviews = await Review.find({ restaurantId: { $in: restaurants.map((r) => r._id) } })
         .populate('userId', 'name')
         .sort({ createdAt: -1, _id: -1 })
-        .limit(50)
+        .limit(0)
         .lean();
     res.json(reviews);
 }));

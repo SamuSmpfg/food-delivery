@@ -25,9 +25,8 @@ const notifyChef = async ({ order, restaurant, customer, type, title, descriptio
   }
 }
 
-export const notifyChefOfNewOrder = ({ order, restaurant, customer }) =>
+export const notifyChefOfNewOrder = ({ restaurant, customer }) =>
   notifyChef({
-    order,
     restaurant,
     customer,
     type: 'order_new',
